@@ -1,4 +1,4 @@
-function App() {
+export default function App() {
   return (
     <div className="bg-atmos text-slate-900">
       <div className="flex min-h-screen flex-col px-4 py-6 sm:px-6 lg:px-12 2xl:px-24">
@@ -47,5 +47,3 @@ function App() {
     </div>
   )
 }
-
-export default App
