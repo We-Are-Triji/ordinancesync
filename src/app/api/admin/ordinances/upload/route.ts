@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const bucket = await getBucket()
 
     const uploadStream = bucket.openUploadStream(file.name, {
-      contentType: "application/pdf",
+      metadata: { contentType: "application/pdf" },
     })
 
     await new Promise<void>((resolve, reject) => {
