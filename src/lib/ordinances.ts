@@ -183,3 +183,56 @@ export async function deleteOrdinance(id: string): Promise<boolean> {
 
   return result.deletedCount === 1
 }
+
+export interface OrdinanceContext {
+  ordinanceNumber: string
+  title: string
+  office: string
+  status: OrdinanceStatus
+  summary: string
+  text: string
+}
+
+/**
+ * Returns the FULL set of ordinances as grounding context for the chat agent.
+ * This is the authoritative whitelist: the assistant may only reference
+ * ordinance numbers that appear here. Text is truncated per-doc to keep the
+ * prompt within limits while still enabling content answers.
+ */
+export async function getOrdinanceContext(
+  perDocTextLimit = 6000
+): Promise<OrdinanceContext[]> {
+  const db = await getDb()
+  const docs = await db
+    .collection(COLLECTION)
+    .find({})
+    .sort({ createdAt: -1 })
+    .toArray()
+
+  return docs.map((d) => ({
+    ordinanceNumber: d.ordinanceNumber ?? "",
+    title: d.title ?? "",
+    office: d.office ?? "",
+    status: (d.status as OrdinanceStatus) ?? "active",
+    summary: d.summary ?? "",
+    text: (d.text ?? "").slice(0, perDocTextLimit),
+  }))
+}
+
+/**
+ * Returns the set of valid ordinance numbers currently in the database,
+ * normalized for comparison. Used to validate that an answer only cites real
+ * ordinances.
+ */
+export async function getValidOrdinanceNumbers(): Promise<Set<string>> {
+  const db = await getDb()
+  const docs = await db
+    .collection(COLLECTION)
+    .find({}, { projection: { ordinanceNumber: 1 } })
+    .toArray()
+  return new Set(
+    docs
+      .map((d) => String(d.ordinanceNumber ?? "").trim().toLowerCase())
+      .filter(Boolean)
+  )
+}

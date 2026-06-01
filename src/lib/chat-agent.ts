@@ -69,12 +69,21 @@ export interface ChatQueryInput {
   userId: string
   sessionId: string
   message: string
+  groundingContext: string
+  validNumbers: Set<string>
 }
 
 /**
  * Sends a message to the chat agent within a session and returns the final
- * text answer (Markdown). Uses the non-streaming `:query` with `stream_query`
- * semantics collapsed server-side for simplicity.
+ * text answer (Markdown).
+ *
+ * Defense in depth against hallucination:
+ * 1. We prepend authoritative grounding context (the real ordinances pulled
+ *    from MongoDB by OUR backend) to the message, so the model has the facts
+ *    in-context and is told to use ONLY these.
+ * 2. After the model responds, we VALIDATE every ordinance number it cited
+ *    against the real DB whitelist. Any answer citing a non-existent ordinance
+ *    is rejected and replaced with a safe fallback.
  */
 export async function queryChatAgent(input: ChatQueryInput): Promise<string> {
   if (!isChatAgentConfigured()) {
@@ -82,6 +91,14 @@ export async function queryChatAgent(input: ChatQueryInput): Promise<string> {
       "Chat agent not configured. Set GOOGLE_CLOUD_PROJECT and CHAT_AGENT_ENGINE_ID."
     )
   }
+
+  const wrappedMessage =
+    `${input.groundingContext}\n\n` +
+    `=== USER QUESTION ===\n${input.message}\n\n` +
+    `Answer the user's question using ONLY the ordinances listed in the ` +
+    `AUTHORITATIVE ORDINANCE DATA above. If the answer is not in that data, ` +
+    `say no matching ordinance is on file. Never mention any ordinance that ` +
+    `is not in that list.`
 
   const token = await getToken()
   const res = await fetch(`${engineBase()}:streamQuery?alt=sse`, {
@@ -95,7 +112,7 @@ export async function queryChatAgent(input: ChatQueryInput): Promise<string> {
       input: {
         user_id: input.userId,
         session_id: input.sessionId,
-        message: input.message,
+        message: wrappedMessage,
       },
     }),
   })
@@ -115,7 +132,85 @@ export async function queryChatAgent(input: ChatQueryInput): Promise<string> {
     throw new Error(`Agent error: ${errMatch[1].slice(0, 200)}`)
   }
 
-  return extractFinalText(raw)
+  const answer = extractFinalText(raw)
+
+  // Final deterministic guard: reject any answer that cites an ordinance number
+  // not present in the real database.
+  return enforceWhitelist(answer, input.validNumbers)
+}
+
+/**
+ * Scans the answer for ordinance-number references and verifies each one
+ * exists in the DB whitelist. If the answer cites any number that isn't real,
+ * the whole answer is replaced (we cannot trust a hallucinated response).
+ *
+ * Matches patterns like "Ordinance No. 2244", "Ordinance No. 2235",
+ * "ORD-2026-14", "Ordinance Number 14", etc.
+ */
+export function enforceWhitelist(
+  answer: string,
+  validNumbers: Set<string>
+): string {
+  if (!answer.trim()) {
+    return "I couldn't find an answer. Please rephrase your question about Cebu City ordinances."
+  }
+
+  const cited = extractCitedOrdinanceNumbers(answer)
+
+  for (const c of cited) {
+    if (!isCitedNumberValid(c, validNumbers)) {
+      // The model invented an ordinance. Do not return its content.
+      return (
+        "I can only share ordinances that are officially on file, and I " +
+        "couldn't find a matching one for that question. Please try a " +
+        "different topic or check back later as more ordinances are added."
+      )
+    }
+  }
+
+  return answer
+}
+
+/**
+ * Extracts candidate ordinance identifiers cited in the answer text.
+ */
+function extractCitedOrdinanceNumbers(text: string): string[] {
+  const results = new Set<string>()
+
+  // "Ordinance No. 2244", "Ordinance Number 2235", "Ordinance 1234"
+  const reNo = /ordinance\s*(?:no\.?|number|num\.?|#)?\s*([0-9][0-9-]*)/gi
+  let m: RegExpExecArray | null
+  while ((m = reNo.exec(text)) !== null) {
+    results.add(m[1].trim())
+  }
+
+  // Coded forms like "ORD-2026-14"
+  const reCode = /\bORD[-\s]?[0-9][0-9-]*\b/gi
+  while ((m = reCode.exec(text)) !== null) {
+    results.add(m[0].trim())
+  }
+
+  return [...results]
+}
+
+/**
+ * Checks whether a cited number matches any valid DB ordinance number.
+ * Comparison is lenient: it strips non-alphanumerics so "ORD-2026-14",
+ * "ord 2026 14", and "2026-14" all compare equal to the stored value.
+ */
+function isCitedNumberValid(cited: string, validNumbers: Set<string>): boolean {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "")
+  const c = normalize(cited)
+  if (!c) return true // nothing meaningful to validate
+
+  for (const valid of validNumbers) {
+    const v = normalize(valid)
+    // Match if the cited token is contained in or contains a real number.
+    if (v === c || v.endsWith(c) || c.endsWith(v) || v.includes(c)) {
+      return true
+    }
+  }
+  return false
 }
 
 function extractFinalText(raw: string): string {
