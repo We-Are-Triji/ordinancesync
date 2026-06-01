@@ -1,14 +1,11 @@
 """
-Deploy the OrdinanceSync agent to Vertex AI Agent Engine.
+Deploy the OrdinanceSync public chat agent to Vertex AI Agent Engine.
 
-Prerequisites (see agent/README.md for full setup):
-  - A Google Cloud project with the Vertex AI API enabled
-  - `gcloud auth application-default login` completed
-  - A Cloud Storage bucket for staging
-  - Environment variables set (see below)
+Run from inside agent/ after setting the same env vars as deploy.py:
+  GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, STAGING_BUCKET,
+  MDB_MCP_CONNECTION_STRING
 
-Run:
-  python deploy.py
+  python deploy_chat.py
 """
 
 import os
@@ -16,7 +13,7 @@ from pathlib import Path
 
 
 def _load_env(path: Path) -> None:
-    """Minimal .env loader so `python deploy.py` has the same vars that
+    """Minimal .env loader so `python deploy_chat.py` has the same vars that
     `adk web` would auto-load. Does not override already-set env vars."""
     if not path.exists():
         return
@@ -32,21 +29,20 @@ def _load_env(path: Path) -> None:
 
 # Load the agent package's .env before importing the agent (it reads the
 # connection string at import time).
-_load_env(Path(__file__).parent / "ordinancesync_agent" / ".env")
+_load_env(Path(__file__).parent / "chat_agent" / ".env")
 
 import vertexai
 from vertexai import agent_engines
 from vertexai.preview import reasoning_engines
 
-from ordinancesync_agent.agent import root_agent
+from chat_agent.agent import root_agent
 
 PROJECT = os.environ["GOOGLE_CLOUD_PROJECT"]
 LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "asia-southeast1")
-STAGING_BUCKET = os.environ["STAGING_BUCKET"]  # e.g. gs://my-bucket
+STAGING_BUCKET = os.environ["STAGING_BUCKET"]
 
 vertexai.init(project=PROJECT, location=LOCATION, staging_bucket=STAGING_BUCKET)
 
-# Wrap the ADK agent for Agent Engine.
 app = reasoning_engines.AdkApp(agent=root_agent, enable_tracing=True)
 
 remote_app = agent_engines.create(
@@ -55,12 +51,12 @@ remote_app = agent_engines.create(
         "google-cloud-aiplatform[adk,agent_engines]",
         "mcp",
     ],
-    display_name="ordinancesync-agent",
+    display_name="ordinancesync-chat-agent",
 )
 
-print("Deployed Agent Engine resource name:")
+print("Deployed CHAT Agent Engine resource name:")
 print(remote_app.resource_name)
 print(
-    "\nSet AGENT_ENGINE_ID in your .env.local to the trailing numeric ID of "
-    "the resource name above (the part after 'reasoningEngines/')."
+    "\nSet CHAT_AGENT_ENGINE_ID in your .env.local to the trailing numeric ID "
+    "(the part after 'reasoningEngines/')."
 )

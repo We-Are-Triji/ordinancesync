@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Readable } from "node:stream"
 import { getBucket } from "@/lib/mongodb"
+import { extractPdfText } from "@/lib/pdf-text"
 
 export const runtime = "nodejs"
 
@@ -40,10 +41,24 @@ export async function POST(request: NextRequest) {
       Readable.from(buffer).pipe(uploadStream).on("error", reject).on("finish", resolve)
     })
 
+    // Extract text so the chat agent can search/quote actual ordinance content.
+    // Failure here shouldn't block the upload — store empty text and continue.
+    let text = ""
+    let extractedPages = 0
+    try {
+      const extracted = await extractPdfText(buffer)
+      text = extracted.text
+      extractedPages = extracted.pageCount
+    } catch (err) {
+      console.error("PDF text extraction failed (continuing):", err)
+    }
+
     return NextResponse.json({
       fileId: uploadStream.id.toString(),
       fileName: file.name,
       fileSize: file.size,
+      text,
+      extractedPages,
     })
   } catch (err) {
     console.error("Upload failed:", err)

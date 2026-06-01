@@ -22,6 +22,7 @@ function serialize(doc: WithId<Document>): Ordinance {
     fileName: doc.fileName ?? "",
     fileSize: doc.fileSize ?? 0,
     summary: doc.summary ?? "",
+    text: doc.text ?? "",
     createdAt:
       doc.createdAt instanceof Date
         ? doc.createdAt.toISOString()
@@ -101,6 +102,7 @@ export interface CreateOrdinanceInput {
   fileName: string
   fileSize: number
   summary?: string
+  text?: string
 }
 
 export async function createOrdinance(
@@ -118,6 +120,7 @@ export async function createOrdinance(
     fileName: input.fileName,
     fileSize: input.fileSize,
     summary: input.summary ?? "",
+    text: input.text ?? "",
     createdAt: now,
     updatedAt: now,
   }

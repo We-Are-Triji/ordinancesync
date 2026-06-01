@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 // Only /admin subpaths and the admin API require authentication. The /admin
 // index itself renders a login interface for signed-out users, so it stays
-// reachable. Public routes (/, /chat, /lguportal) are never gated.
+// reachable. Public routes (/, /chat, /api/chat) are never gated.
 const isProtectedPage = createRouteMatcher(["/admin/(.+)"]);
 const isProtectedApi = createRouteMatcher(["/api/admin/(.*)"]);
 

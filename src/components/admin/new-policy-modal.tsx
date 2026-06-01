@@ -19,6 +19,8 @@ interface UploadResult {
   fileId: string
   fileName: string
   fileSize: number
+  text?: string
+  extractedPages?: number
 }
 
 interface NewPolicyModalProps {
@@ -124,6 +126,7 @@ export default function NewPolicyModal({
           fileId: uploaded.fileId,
           fileName: uploaded.fileName,
           fileSize: uploaded.fileSize,
+          text: uploaded.text ?? "",
           status: "active",
         }),
       })

@@ -11,6 +11,7 @@ export interface Ordinance {
   fileName: string
   fileSize: number
   summary?: string
+  text?: string
   createdAt: string
   updatedAt: string
 }

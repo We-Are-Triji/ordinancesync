@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { ordinanceNumber, title, office, status, pageCount, fileId, fileName, fileSize, summary } = body
+    const { ordinanceNumber, title, office, status, pageCount, fileId, fileName, fileSize, summary, text } = body
 
     if (!ordinanceNumber || !title || !office || !fileId) {
       return NextResponse.json(
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       fileName: fileName ?? "document.pdf",
       fileSize: Number(fileSize) || 0,
       summary,
+      text,
     })
 
     return NextResponse.json(ordinance, { status: 201 })
