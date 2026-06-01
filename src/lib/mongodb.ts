@@ -8,7 +8,7 @@ if (!uri) {
   )
 }
 
-const DB_NAME = process.env.MONGODB_DB ?? "ordinancesync"
+const DB_NAME = process.env.MONGODB_DB ?? "ordinance_sync"
 
 // Cache the client across hot reloads in development so we don't open a new
 // connection on every change. In production a single module instance is reused.

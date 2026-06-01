@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Building2, FileStack, Landmark, Settings } from "lucide-react"
-import { UserButton } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
+import { Building2, FileStack, Landmark, LogOut, Settings } from "lucide-react"
+import { useClerk } from "@clerk/nextjs"
 import ActiveOrdinances from "./active-ordinances"
 import OfficesTab from "./offices-tab"
 import SettingsTab from "./settings-tab"
@@ -18,6 +19,13 @@ const tabs: { key: TabKey; label: string; icon: typeof FileStack }[] = [
 
 export default function DashboardShell() {
   const [active, setActive] = useState<TabKey>("ordinances")
+  const { signOut } = useClerk()
+  const router = useRouter()
+
+  async function handleLogout() {
+    await signOut()
+    router.replace("/admin")
+  }
 
   return (
     <main className="min-h-screen bg-[#eaf8ff] text-slate-950">
@@ -41,7 +49,14 @@ export default function DashboardShell() {
             </span>
           </Link>
 
-          <UserButton />
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            Logout
+          </button>
         </div>
 
         <nav

@@ -170,7 +170,7 @@ export default function LandingPage() {
           </nav>
 
           <Link
-            href="/lguportal"
+            href="/admin"
             className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-[#1697cf] px-3 text-xs font-bold text-white shadow-sm transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf] sm:px-5 sm:text-sm"
           >
             LGU Portal
@@ -362,7 +362,7 @@ export default function LandingPage() {
             <Link className="hover:text-[#1697cf]" href="/chat">
               Policy Chat
             </Link>
-            <Link className="hover:text-[#1697cf]" href="/lguportal">
+            <Link className="hover:text-[#1697cf]" href="/admin">
               LGU Portal
             </Link>
           </div>
