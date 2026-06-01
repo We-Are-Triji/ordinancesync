@@ -8,9 +8,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const page = Number(searchParams.get("page") ?? "1")
   const pageSize = Number(searchParams.get("pageSize") ?? "10")
+  const search = searchParams.get("search") ?? ""
+  const statusParam = searchParams.get("status") ?? "all"
+  const status = (["active", "pending", "archived", "all"].includes(statusParam)
+    ? statusParam
+    : "all") as OrdinanceStatus | "all"
 
   try {
-    const result = await listOrdinances(page, pageSize)
+    const result = await listOrdinances({ page, pageSize, search, status })
     return NextResponse.json(result)
   } catch (err) {
     console.error("List ordinances failed:", err)

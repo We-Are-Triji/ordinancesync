@@ -1,8 +1,14 @@
-import { ObjectId, type WithId, type Document } from "mongodb"
-import { getDb } from "./mongodb"
+import { ObjectId, type WithId, type Document, type Filter } from "mongodb"
+import { getDb, getBucket } from "./mongodb"
 import type { Ordinance, OrdinanceStatus, PaginatedOrdinances } from "./types"
 
 const COLLECTION = "ordinances"
+
+// Escape user input before using it in a RegExp so search terms are treated
+// literally and can't inject regex operators.
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
 
 function serialize(doc: WithId<Document>): Ordinance {
   return {
@@ -27,19 +33,43 @@ function serialize(doc: WithId<Document>): Ordinance {
   }
 }
 
+export interface ListOrdinancesOptions {
+  page?: number
+  pageSize?: number
+  search?: string
+  status?: OrdinanceStatus | "all"
+}
+
 export async function listOrdinances(
-  page = 1,
-  pageSize = 10
+  options: ListOrdinancesOptions = {}
 ): Promise<PaginatedOrdinances> {
+  const { page = 1, pageSize = 10, search = "", status = "all" } = options
+
   const db = await getDb()
   const collection = db.collection(COLLECTION)
 
   const safePage = Math.max(1, page)
   const safeSize = Math.min(100, Math.max(1, pageSize))
 
-  const total = await collection.countDocuments({})
+  const query: Filter<Document> = {}
+
+  if (status && status !== "all") {
+    query.status = status
+  }
+
+  const term = search.trim()
+  if (term) {
+    const regex = { $regex: escapeRegex(term), $options: "i" }
+    query.$or = [
+      { ordinanceNumber: regex },
+      { title: regex },
+      { office: regex },
+    ]
+  }
+
+  const total = await collection.countDocuments(query)
   const docs = await collection
-    .find({})
+    .find(query)
     .sort({ createdAt: -1 })
     .skip((safePage - 1) * safeSize)
     .limit(safeSize)
@@ -93,4 +123,60 @@ export async function createOrdinance(
   }
   const result = await db.collection(COLLECTION).insertOne(doc)
   return serialize({ _id: result.insertedId, ...doc })
+}
+
+export interface UpdateOrdinanceInput {
+  ordinanceNumber?: string
+  title?: string
+  office?: string
+  status?: OrdinanceStatus
+  summary?: string
+}
+
+export async function updateOrdinance(
+  id: string,
+  input: UpdateOrdinanceInput
+): Promise<Ordinance | null> {
+  if (!ObjectId.isValid(id)) return null
+  const db = await getDb()
+
+  const update: Record<string, unknown> = { updatedAt: new Date() }
+  for (const key of ["ordinanceNumber", "title", "office", "status", "summary"] as const) {
+    if (input[key] !== undefined) update[key] = input[key]
+  }
+
+  const result = await db
+    .collection(COLLECTION)
+    .findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: update },
+      { returnDocument: "after" }
+    )
+
+  return result ? serialize(result) : null
+}
+
+export async function deleteOrdinance(id: string): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false
+  const db = await getDb()
+
+  const doc = await db.collection(COLLECTION).findOne({ _id: new ObjectId(id) })
+  if (!doc) return false
+
+  // Remove the backing PDF from GridFS first, then the metadata record.
+  if (doc.fileId) {
+    try {
+      const bucket = await getBucket()
+      await bucket.delete(new ObjectId(doc.fileId))
+    } catch (err) {
+      // File may already be gone; log and continue removing the record.
+      console.error("Failed to delete GridFS file:", err)
+    }
+  }
+
+  const result = await db
+    .collection(COLLECTION)
+    .deleteOne({ _id: new ObjectId(id) })
+
+  return result.deletedCount === 1
 }

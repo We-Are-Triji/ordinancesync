@@ -6,13 +6,28 @@ import {
   ChevronRight,
   FileText,
   Loader2,
+  Pencil,
   Plus,
+  Search,
+  Trash2,
+  X,
 } from "lucide-react"
-import type { Ordinance, PaginatedOrdinances } from "@/lib/types"
+import type { Ordinance, OrdinanceStatus, PaginatedOrdinances } from "@/lib/types"
 import NewPolicyModal from "./new-policy-modal"
 import PolicyDetailModal from "./policy-detail-modal"
+import EditPolicyModal from "./edit-policy-modal"
+import DeletePolicyDialog from "./delete-policy-dialog"
 
 const PAGE_SIZE = 10
+
+type StatusFilter = OrdinanceStatus | "all"
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "pending", label: "Pending" },
+  { value: "archived", label: "Archived" },
+]
 
 const statusStyles: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700",
@@ -36,41 +51,98 @@ export default function ActiveOrdinances() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [searchInput, setSearchInput] = useState("")
+  const [search, setSearch] = useState("")
+  const [status, setStatus] = useState<StatusFilter>("all")
+
   const [showNew, setShowNew] = useState(false)
   const [selected, setSelected] = useState<Ordinance | null>(null)
+  const [editing, setEditing] = useState<Ordinance | null>(null)
+  const [deleting, setDeleting] = useState<Ordinance | null>(null)
 
-  const load = useCallback(async (targetPage: number) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(
-        `/api/admin/ordinances?page=${targetPage}&pageSize=${PAGE_SIZE}`
-      )
-      if (!res.ok) throw new Error("Failed to load ordinances.")
-      setData(await res.json())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load.")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  // Debounce the search box so we don't hit the API on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+    }, 350)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
+  const load = useCallback(
+    async (targetPage: number, term: string, statusFilter: StatusFilter) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams({
+          page: String(targetPage),
+          pageSize: String(PAGE_SIZE),
+        })
+        if (term.trim()) params.set("search", term.trim())
+        if (statusFilter !== "all") params.set("status", statusFilter)
+
+        const res = await fetch(`/api/admin/ordinances?${params.toString()}`)
+        if (!res.ok) throw new Error("Failed to load ordinances.")
+        setData(await res.json())
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load.")
+      } finally {
+        setLoading(false)
+      }
+    },
+    []
+  )
 
   useEffect(() => {
-    load(page)
-  }, [page, load])
+    load(page, search, status)
+  }, [page, search, status, load])
+
+  function refresh() {
+    load(page, search, status)
+  }
 
   function handleCreated() {
     setShowNew(false)
-    if (page === 1) {
-      load(1)
+    setSearchInput("")
+    setSearch("")
+    setStatus("all")
+    setPage(1)
+  }
+
+  function handleSaved(updated: Ordinance) {
+    setEditing(null)
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((o) => (o._id === updated._id ? updated : o)),
+          }
+        : prev
+    )
+    // Keep the detail modal in sync if it's open for the same record.
+    setSelected((prev) => (prev && prev._id === updated._id ? updated : prev))
+  }
+
+  function handleDeleted() {
+    setDeleting(null)
+    // If we just removed the last row on a page beyond the first, step back.
+    if (items.length === 1 && page > 1) {
+      setPage((p) => p - 1)
     } else {
-      setPage(1)
+      refresh()
     }
+  }
+
+  function handleStatusChange(next: StatusFilter) {
+    setStatus(next)
+    setPage(1)
   }
 
   const items = data?.items ?? []
   const totalPages = data?.totalPages ?? 1
   const total = data?.total ?? 0
+  const hasFilters = search.trim() !== "" || status !== "all"
 
   return (
     <div>
@@ -80,7 +152,8 @@ export default function ActiveOrdinances() {
             Active Ordinances
           </h2>
           <p className="text-sm font-semibold text-slate-500">
-            {total} record{total === 1 ? "" : "s"} on file
+            {total} record{total === 1 ? "" : "s"}
+            {hasFilters ? " matched" : " on file"}
           </p>
         </div>
         <button
@@ -93,9 +166,54 @@ export default function ActiveOrdinances() {
         </button>
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      {/* Search + filter controls */}
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by ordinance number, title, or office"
+            className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+            aria-label="Search ordinances"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => setSearchInput("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Clear search"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex shrink-0 gap-1 rounded-md border border-slate-200 bg-white p-1">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => handleStatusChange(f.value)}
+              className={`rounded px-3 py-1.5 text-xs font-bold transition ${
+                status === f.value
+                  ? "bg-[#1697cf] text-white"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              }`}
+              aria-pressed={status === f.value}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Timestamp</th>
@@ -104,12 +222,13 @@ export default function ActiveOrdinances() {
                 <th className="px-4 py-3">Office</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Pages</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-[13px] text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <span className="inline-flex items-center gap-2 font-sans text-sm font-semibold text-slate-500">
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                       Loading log...
@@ -119,7 +238,7 @@ export default function ActiveOrdinances() {
               ) : error ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-12 text-center font-sans text-sm font-semibold text-red-600"
                   >
                     {error}
@@ -128,10 +247,12 @@ export default function ActiveOrdinances() {
               ) : items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-12 text-center font-sans text-sm font-semibold text-slate-400"
                   >
-                    No ordinances yet. Click “New Policy” to add the first one.
+                    {hasFilters
+                      ? "No ordinances match your search or filter."
+                      : "No ordinances yet. Click “New Policy” to add the first one."}
                   </td>
                 </tr>
               ) : (
@@ -166,6 +287,34 @@ export default function ActiveOrdinances() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">{o.pageCount}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditing(o)
+                          }}
+                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-[#1697cf]/10 hover:text-[#1697cf]"
+                          aria-label={`Edit ${o.ordinanceNumber}`}
+                          title="Edit"
+                        >
+                          <Pencil className="size-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleting(o)
+                          }}
+                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                          aria-label={`Delete ${o.ordinanceNumber}`}
+                          title="Delete"
+                        >
+                          <Trash2 className="size-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -210,6 +359,20 @@ export default function ActiveOrdinances() {
         <PolicyDetailModal
           ordinance={selected}
           onClose={() => setSelected(null)}
+        />
+      )}
+      {editing && (
+        <EditPolicyModal
+          ordinance={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
+      )}
+      {deleting && (
+        <DeletePolicyDialog
+          ordinance={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={handleDeleted}
         />
       )}
     </div>
