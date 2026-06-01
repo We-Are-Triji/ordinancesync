@@ -86,10 +86,15 @@ export default function OfficesTab() {
 
   function handleCreated() {
     setShowAdd(false)
+    // Reset filters for visual consistency, then explicitly reload page 1.
+    // We call load() directly because if these state values are already at
+    // their defaults, setState won't change them and the reload effect won't
+    // fire — leaving the new office invisible until a manual refresh.
     setSearchInput("")
     setSearch("")
     setCategory("all")
     setPage(1)
+    load(1, "", "all")
   }
 
   function handleDeleted() {

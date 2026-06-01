@@ -107,10 +107,14 @@ export default function ActiveOrdinances() {
 
   function handleCreated() {
     setShowNew(false)
+    // Reset filters, then explicitly reload page 1. Calling load() directly
+    // avoids the case where state is already at defaults (so the reload effect
+    // wouldn't fire and the new ordinance would stay hidden until refresh).
     setSearchInput("")
     setSearch("")
     setStatus("all")
     setPage(1)
+    load(1, "", "all")
   }
 
   function handleSaved(updated: Ordinance) {
