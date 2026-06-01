@@ -65,12 +65,18 @@ export async function createChatSession(userId: string): Promise<string> {
   return sessionId
 }
 
+export interface ChatTurn {
+  role: "user" | "assistant"
+  content: string
+}
+
 export interface ChatQueryInput {
   userId: string
   sessionId: string
   message: string
   groundingContext: string
   validNumbers: Set<string>
+  history?: ChatTurn[]
 }
 
 /**
@@ -84,6 +90,10 @@ export interface ChatQueryInput {
  * 2. After the model responds, we VALIDATE every ordinance number it cited
  *    against the real DB whitelist. Any answer citing a non-existent ordinance
  *    is rejected and replaced with a safe fallback.
+ *
+ * Conversation memory: recent prior turns are included so follow-up questions
+ * ("what about the penalties?") resolve against earlier context. The ADK
+ * session id is also reused for server-side state.
  */
 export async function queryChatAgent(input: ChatQueryInput): Promise<string> {
   if (!isChatAgentConfigured()) {
@@ -92,13 +102,31 @@ export async function queryChatAgent(input: ChatQueryInput): Promise<string> {
     )
   }
 
+  // Build a short recent-history block so follow-ups have context.
+  let historyBlock = ""
+  if (input.history && input.history.length > 0) {
+    const recent = input.history.slice(-6) // last 3 exchanges
+    historyBlock =
+      "=== RECENT CONVERSATION (for context on follow-up questions) ===\n" +
+      recent
+        .map(
+          (t) =>
+            `${t.role === "user" ? "User" : "Assistant"}: ${t.content.slice(0, 800)}`
+        )
+        .join("\n") +
+      "\n\n"
+  }
+
   const wrappedMessage =
     `${input.groundingContext}\n\n` +
-    `=== USER QUESTION ===\n${input.message}\n\n` +
-    `Answer the user's question using ONLY the ordinances listed in the ` +
-    `AUTHORITATIVE ORDINANCE DATA above. If the answer is not in that data, ` +
-    `say no matching ordinance is on file. Never mention any ordinance that ` +
-    `is not in that list.`
+    historyBlock +
+    `=== CURRENT USER QUESTION ===\n${input.message}\n\n` +
+    `Answer the user's current question using ONLY the ordinances listed in ` +
+    `the AUTHORITATIVE ORDINANCE DATA above. Do NOT call any tools or write ` +
+    `code — everything you need is already provided above. Use the recent ` +
+    `conversation only to understand follow-up references (like "it" or "that ` +
+    `ordinance"). If the answer is not in the authoritative data, say no ` +
+    `matching ordinance is on file. Never mention any ordinance not in that list.`
 
   const token = await getToken()
   const res = await fetch(`${engineBase()}:streamQuery?alt=sse`, {
@@ -139,6 +167,20 @@ export async function queryChatAgent(input: ChatQueryInput): Promise<string> {
   return enforceWhitelist(answer, input.validNumbers)
 }
 
+// Sentinel returned when the answer must not be trusted or was empty. The
+// route uses this to avoid caching non-answers.
+export const FALLBACK_PREFIX = "__FALLBACK__"
+
+export function isFallbackAnswer(answer: string): boolean {
+  return answer.startsWith(FALLBACK_PREFIX)
+}
+
+export function stripFallbackMarker(answer: string): string {
+  return answer.startsWith(FALLBACK_PREFIX)
+    ? answer.slice(FALLBACK_PREFIX.length)
+    : answer
+}
+
 /**
  * Scans the answer for ordinance-number references and verifies each one
  * exists in the DB whitelist. If the answer cites any number that isn't real,
@@ -152,7 +194,10 @@ export function enforceWhitelist(
   validNumbers: Set<string>
 ): string {
   if (!answer.trim()) {
-    return "I couldn't find an answer. Please rephrase your question about Cebu City ordinances."
+    return (
+      FALLBACK_PREFIX +
+      "I couldn't generate an answer just now. Please try asking again."
+    )
   }
 
   const cited = extractCitedOrdinanceNumbers(answer)
@@ -161,6 +206,7 @@ export function enforceWhitelist(
     if (!isCitedNumberValid(c, validNumbers)) {
       // The model invented an ordinance. Do not return its content.
       return (
+        FALLBACK_PREFIX +
         "I can only share ordinances that are officially on file, and I " +
         "couldn't find a matching one for that question. Please try a " +
         "different topic or check back later as more ordinances are added."

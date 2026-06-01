@@ -62,6 +62,7 @@ export default function ChatPage() {
           message: question,
           sessionId,
           userId: getUserId(),
+          history: messages.slice(-6),
         }),
       })
       const data = await res.json()
@@ -85,8 +86,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#eaf8ff] text-slate-900">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#eaf8ff] text-slate-900">
+      <header className="shrink-0 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
           <Link
             href="/"

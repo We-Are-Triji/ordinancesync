@@ -22,7 +22,10 @@ export function isAgentConfigured(): boolean {
 export interface AnalyzeInput {
   ordinanceNumber: string
   ordinanceTitle: string
-  pdfBase64: string
+  // Prefer pre-extracted text (cheap, already parsed at upload). Fall back to
+  // the PDF only when text isn't available.
+  ordinanceText?: string
+  pdfBase64?: string
 }
 
 export interface AgentDraftResult {
@@ -77,12 +80,21 @@ export async function analyzeOrdinance(
     `reasoningEngines/${AGENT_ENGINE_ID}:query`
 
   const instruction =
-    `Analyze the attached Cebu City ordinance "${input.ordinanceNumber} - ` +
+    `Analyze the following Cebu City ordinance "${input.ordinanceNumber} - ` +
     `${input.ordinanceTitle}". Use the MongoDB tools to read the "offices" ` +
     `collection. Determine which offices are affected by this ordinance. ` +
     `For each affected office, draft a short, localized Cebuano compliance ` +
     `checklist. Respond ONLY with a JSON array where each item has: ` +
     `officeId, officeName, email, subject, message.`
+
+  // Prefer the pre-extracted text (avoids re-uploading/re-parsing heavy PDFs
+  // on every dispatch). Only send the PDF bytes if text isn't available.
+  const inputPayload: Record<string, unknown> = { instruction }
+  if (input.ordinanceText && input.ordinanceText.trim()) {
+    inputPayload.ordinance_text = input.ordinanceText
+  } else if (input.pdfBase64) {
+    inputPayload.pdf_base64 = input.pdfBase64
+  }
 
   const res = await fetch(endpoint, {
     method: "POST",
@@ -91,10 +103,7 @@ export async function analyzeOrdinance(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      input: {
-        instruction,
-        pdf_base64: input.pdfBase64,
-      },
+      input: inputPayload,
     }),
   })
 

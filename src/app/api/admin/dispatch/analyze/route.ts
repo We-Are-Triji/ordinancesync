@@ -51,17 +51,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Ordinance not found" }, { status: 404 })
     }
 
-    const pdfBase64 = await loadPdfBase64(ordinance.fileId)
-    if (!pdfBase64) {
-      return NextResponse.json(
-        { error: "Ordinance PDF file not found" },
-        { status: 404 }
-      )
+    // Prefer pre-extracted text (set at upload). Only load and send the heavy
+    // PDF bytes when text isn't available — avoids reprocessing large files.
+    let ordinanceText = ordinance.text ?? ""
+    let pdfBase64: string | undefined
+
+    if (!ordinanceText.trim()) {
+      const loaded = await loadPdfBase64(ordinance.fileId)
+      if (!loaded) {
+        return NextResponse.json(
+          { error: "Ordinance content not available (no text or PDF)." },
+          { status: 404 }
+        )
+      }
+      pdfBase64 = loaded
     }
 
     const { drafts } = await analyzeOrdinance({
       ordinanceNumber: ordinance.ordinanceNumber,
       ordinanceTitle: ordinance.title,
+      ordinanceText: ordinanceText || undefined,
       pdfBase64,
     })
 

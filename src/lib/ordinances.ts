@@ -194,13 +194,13 @@ export interface OrdinanceContext {
 }
 
 /**
- * Returns the FULL set of ordinances as grounding context for the chat agent.
- * This is the authoritative whitelist: the assistant may only reference
- * ordinance numbers that appear here. Text is truncated per-doc to keep the
- * prompt within limits while still enabling content answers.
+ * Returns ordinance grounding context for the chat agent, including a bounded
+ * slice of full text so the agent can answer content questions WITHOUT making
+ * a live tool call (which avoids the ADK code-execution/MCP tool-call bug and
+ * is far faster). Large ordinances are truncated to keep the prompt bounded.
  */
 export async function getOrdinanceContext(
-  perDocTextLimit = 6000
+  perDocTextLimit = 4000
 ): Promise<OrdinanceContext[]> {
   const db = await getDb()
   const docs = await db
@@ -235,4 +235,25 @@ export async function getValidOrdinanceNumbers(): Promise<Set<string>> {
       .map((d) => String(d.ordinanceNumber ?? "").trim().toLowerCase())
       .filter(Boolean)
   )
+}
+
+/**
+ * A cheap fingerprint of the current ordinance dataset. Changes whenever an
+ * ordinance is added, edited, or removed. Used to invalidate the semantic
+ * answer cache so stale answers are never served after data changes.
+ */
+export async function getDatasetVersion(): Promise<string> {
+  const db = await getDb()
+  const collection = db.collection(COLLECTION)
+  const count = await collection.countDocuments({})
+  const latest = await collection
+    .find({}, { projection: { updatedAt: 1 } })
+    .sort({ updatedAt: -1 })
+    .limit(1)
+    .toArray()
+  const stamp =
+    latest[0]?.updatedAt instanceof Date
+      ? latest[0].updatedAt.getTime()
+      : String(latest[0]?.updatedAt ?? "0")
+  return `${count}:${stamp}`
 }
