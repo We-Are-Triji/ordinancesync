@@ -17,10 +17,10 @@ import vertexai
 from vertexai import agent_engines
 from vertexai.preview import reasoning_engines
 
-from agent import root_agent
+from ordinancesync_agent.agent import root_agent
 
 PROJECT = os.environ["GOOGLE_CLOUD_PROJECT"]
-LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "asia-southeast1")
 STAGING_BUCKET = os.environ["STAGING_BUCKET"]  # e.g. gs://my-bucket
 
 vertexai.init(project=PROJECT, location=LOCATION, staging_bucket=STAGING_BUCKET)

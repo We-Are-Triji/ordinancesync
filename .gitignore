@@ -44,6 +44,14 @@ next-env.d.ts
 agent/.venv/
 agent/__pycache__/
 *.pyc
-# service account keys
+# service account keys (GCP) — match common patterns AND the actual filename
 *-key.json
 service-account*.json
+project-*.json
+gcp-*.json
+*-credentials.json
+application_default_credentials.json
+# agent runtime state
+agent/.adk/
+agent/**/.adk/
+**/session.db

@@ -49,7 +49,7 @@ Do not include any prose outside the JSON array.
 """
 
 root_agent = Agent(
-    model="gemini-flash-latest",
+    model="gemini-2.5-flash",
     name="ordinancesync_agent",
     instruction=INSTRUCTION,
     tools=[

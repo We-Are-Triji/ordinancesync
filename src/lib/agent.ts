@@ -12,7 +12,7 @@ import type { DispatchDraft } from "./types"
  */
 
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT
-const LOCATION = process.env.GOOGLE_CLOUD_LOCATION ?? "us-central1"
+const LOCATION = process.env.GOOGLE_CLOUD_LOCATION ?? "asia-southeast1"
 const AGENT_ENGINE_ID = process.env.AGENT_ENGINE_ID
 
 export function isAgentConfigured(): boolean {
