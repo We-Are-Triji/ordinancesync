@@ -1,0 +1,373 @@
+"use client"
+
+import Image from "next/image"
+import Link from "next/link"
+import { useEffect, useState } from "react"
+import {
+  ArrowRight,
+  Bot,
+  Building2,
+  CheckCircle2,
+  Landmark,
+  LayoutDashboard,
+  LockKeyhole,
+  MessagesSquare,
+  ScrollText,
+  Search,
+  ShieldCheck,
+} from "lucide-react"
+
+const services = [
+  {
+    title: "Policy Search",
+    text: "Find local ordinances fast",
+    icon: Search,
+    color: "bg-violet-100 text-violet-600",
+  },
+  {
+    title: "AI Assistance",
+    text: "Ask plain-language questions",
+    icon: Bot,
+    color: "bg-lime-100 text-lime-700",
+  },
+  {
+    title: "LGU Workflows",
+    text: "Manage reviews and publishing",
+    icon: LayoutDashboard,
+    color: "bg-blue-100 text-blue-600",
+  },
+  {
+    title: "Public Access",
+    text: "Transparent civic records",
+    icon: LockKeyhole,
+    color: "bg-orange-100 text-orange-600",
+  },
+]
+
+const governancePoints = [
+  "Searchable public ordinance archive",
+  "Plain-language policy summaries",
+  "Administrative tools for LGU teams",
+]
+
+const navItems = [
+  { label: "Home", sectionId: "home", key: "home" },
+  { label: "About us", sectionId: "about", key: "about" },
+  { label: "Services", sectionId: "services", key: "services" },
+  { label: "Policy Chat", href: "/chat", key: "chat" },
+] as const
+
+type NavItem = (typeof navItems)[number]
+type SectionNavItem = Extract<NavItem, { sectionId: string }>
+
+const cebuCitySealUrl =
+  "https://upload.wikimedia.org/wikipedia/commons/5/5c/Cebu_City_seal.svg"
+
+export default function LandingPage() {
+  const [activeNav, setActiveNav] = useState("home")
+
+  useEffect(() => {
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname)
+    }
+
+    const observedSections = navItems
+      .filter((item): item is SectionNavItem => "sectionId" in item)
+      .map((item) => document.getElementById(item.sectionId))
+      .filter((section): section is HTMLElement => Boolean(section))
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+
+        if (visibleEntry?.target.id) {
+          setActiveNav(visibleEntry.target.id)
+        }
+      },
+      {
+        rootMargin: "-25% 0px -55% 0px",
+        threshold: [0.15, 0.35, 0.6],
+      }
+    )
+
+    observedSections.forEach((section) => observer.observe(section))
+    return () => observer.disconnect()
+  }, [])
+
+  const scrollToSection = (sectionId: string) => {
+    document
+      .getElementById(sectionId)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+    window.history.replaceState(null, "", window.location.pathname)
+  }
+
+  const renderNavLink = (item: NavItem) => {
+    const isActive = activeNav === item.key
+    const activeDot = isActive && (
+      <span className="absolute left-1/2 top-0 size-2 -translate-x-1/2 rounded-full bg-cyan-400 md:-left-1 md:-top-1 md:translate-x-0" />
+    )
+
+    const linkClassName = `relative shrink-0 rounded-md px-2 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf] ${
+      isActive ? "text-[#1697cf]" : "text-slate-600 hover:text-[#1697cf]"
+    }`
+
+    if ("href" in item) {
+      return (
+        <Link
+          key={item.key}
+          className={linkClassName}
+          href={item.href}
+          onClick={() => setActiveNav(item.key)}
+        >
+          {activeDot}
+          {item.label}
+        </Link>
+      )
+    }
+
+    return (
+      <button
+        key={item.key}
+        className={linkClassName}
+        type="button"
+        onClick={() => {
+          setActiveNav(item.key)
+          scrollToSection(item.sectionId)
+        }}
+      >
+        {activeDot}
+        {item.label}
+      </button>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-white text-slate-950">
+      <div className="h-1 bg-[#1697cf]" />
+
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1697cf] sm:gap-3"
+            aria-label="OrdinanceSync home"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1697cf] text-white sm:size-10">
+              <Landmark className="size-5" aria-hidden="true" />
+            </span>
+            <span className="truncate text-[15px] font-black uppercase text-[#1697cf] sm:text-xl">
+              OrdinanceSync
+            </span>
+          </Link>
+
+          <nav
+            aria-label="Primary navigation"
+            className="hidden items-center gap-10 text-sm font-semibold text-slate-600 md:flex"
+          >
+            {navItems.map(renderNavLink)}
+          </nav>
+
+          <Link
+            href="/lguportal"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-[#1697cf] px-3 text-xs font-bold text-white shadow-sm transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf] sm:px-5 sm:text-sm"
+          >
+            LGU Portal
+          </Link>
+        </div>
+
+        <nav
+          aria-label="Primary navigation"
+          className="flex gap-6 overflow-x-auto px-4 pb-3 text-sm font-semibold [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden"
+        >
+          {navItems.map(renderNavLink)}
+        </nav>
+      </header>
+
+      <section id="home" className="relative overflow-hidden bg-[#eaf8ff]">
+        <div className="absolute -left-16 bottom-[-54px] size-44 rounded-full bg-teal-400" />
+        <div className="absolute -right-24 top-36 hidden h-64 w-40 rounded-l-full bg-[#1697cf] lg:block" />
+        <div className="absolute right-[10%] top-28 hidden size-8 rotate-12 rounded-md bg-rose-500 shadow-[10px_-8px_0_#ff7b8b] lg:block" />
+        <div className="absolute left-[58%] top-36 hidden size-7 rounded-full bg-violet-600 shadow-[-4px_-7px_0_#83d44f] lg:block" />
+
+        <div className="mx-auto grid min-h-[520px] max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:py-20">
+          <div className="relative z-10 max-w-2xl">
+            <h1 className="max-w-xl text-4xl font-black leading-[1.12] text-slate-950 sm:text-5xl">
+              Experienced{" "}
+              <span className="text-[#1697cf]">digital ordinance</span>{" "}
+              platform for Cebu City governance.
+            </h1>
+            <p className="mt-7 max-w-lg text-sm font-semibold leading-7 text-slate-500">
+              OrdinanceSync helps citizens and LGU teams search, understand,
+              preserve, and manage local legislation through one accessible
+              public policy platform.
+            </p>
+            <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+              <Link
+                href="/chat"
+                className="inline-flex h-12 items-center justify-center rounded-md bg-[#1697cf] px-8 text-sm font-bold text-white shadow-sm transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
+              >
+                Search policies
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("about")
+                  scrollToSection("about")
+                }}
+                className="inline-flex h-12 items-center justify-center rounded-md border border-[#1697cf] bg-white/50 px-8 text-sm font-bold text-[#1697cf] transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
+              >
+                View more
+              </button>
+            </div>
+          </div>
+
+          <div className="relative z-10 flex min-h-[240px] items-center justify-center lg:min-h-[410px]">
+            <div className="absolute left-1/2 top-1/2 size-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/60 shadow-[0_28px_70px_rgba(0,128,180,0.16)] sm:size-72 lg:size-96" />
+            <div className="absolute left-[14%] top-[18%] hidden size-5 rounded-full bg-lime-400 shadow-[12px_10px_0_#6d28d9] sm:block" />
+            <div className="absolute right-[16%] top-[16%] hidden size-8 rotate-12 rounded-md bg-rose-500 shadow-[10px_-8px_0_#ff7b8b] sm:block" />
+            <div className="absolute bottom-[18%] right-[18%] hidden h-16 w-3 rounded-full bg-[#1697cf] sm:block" />
+            <div className="relative flex w-full max-w-[310px] flex-col items-center rounded-md border border-white/80 bg-white/70 px-6 py-7 text-center shadow-2xl shadow-cyan-900/10 backdrop-blur sm:max-w-[390px] sm:px-8 sm:py-9 lg:max-w-[460px]">
+              <Image
+                src={cebuCitySealUrl}
+                alt="Official seal of Cebu City"
+                className="h-auto w-44 max-w-full sm:w-56 lg:w-72"
+                width="565"
+                height="583"
+                priority
+              />
+              <p className="mt-5 text-sm font-black uppercase tracking-wide text-[#1697cf] sm:text-base">
+                Cebu City Government
+              </p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500 sm:text-sm">
+                Official city seal for transparent digital governance.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="services" className="border-b border-slate-200 bg-white px-5 py-7 sm:px-8">
+        <div className="mx-auto grid max-w-7xl gap-5 md:grid-cols-2 lg:grid-cols-4">
+          {services.map(({ title, text, icon: Icon, color }) => (
+            <article key={title} className="flex items-center gap-4">
+              <div className={`flex size-16 shrink-0 items-center justify-center rounded-md ${color}`}>
+                <Icon className="size-7" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-slate-800">{title}</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-400">{text}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="about" className="relative isolate overflow-hidden bg-white px-5 py-20 sm:px-8 lg:py-24">
+        <div className="pointer-events-none absolute -right-28 bottom-0 -z-10 size-80 rounded-full bg-violet-50" />
+        <div className="relative z-10 mx-auto max-w-7xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-3xl font-black leading-tight text-slate-900 sm:text-4xl">
+              Local policy access should feel simple, fast, and trustworthy.
+            </h2>
+            <p className="mt-5 text-sm font-semibold leading-7 text-slate-400">
+              Built for citizens, clerks, and city officials, OrdinanceSync
+              turns scattered records into a searchable, easier-to-manage civic
+              knowledge base.
+            </p>
+          </div>
+
+          <div className="mt-16 grid items-center gap-12 lg:grid-cols-2">
+            <div className="relative min-h-[430px]">
+              <div className="absolute left-3 top-8 h-72 border-l-2 border-dashed border-slate-200" />
+              <div className="relative z-10 space-y-8">
+                {governancePoints.map((point, index) => (
+                  <div key={point} className="flex max-w-md items-start gap-5">
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-teal-400 text-white shadow-lg shadow-teal-400/25">
+                      <CheckCircle2 className="size-6" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900">
+                        {point}
+                      </h3>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+                        {index === 0
+                          ? "Give residents a direct path to official local policy records."
+                          : index === 1
+                            ? "Make complex legislation easier to explore without losing source context."
+                            : "Support publishing, review, and preservation from the LGU side."}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative mx-auto w-full max-w-xl">
+              <div className="rotate-[-10deg] rounded-[2rem] border border-slate-200 bg-slate-950 p-4 shadow-2xl shadow-slate-900/15">
+                <div className="overflow-hidden rounded-[1.4rem] bg-white">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                    <div>
+                      <p className="text-sm font-black text-slate-900">
+                        Ordinance Finder
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        Cebu City public records
+                      </p>
+                    </div>
+                    <ShieldCheck className="size-7 text-[#1697cf]" aria-hidden="true" />
+                  </div>
+                  <div className="space-y-3 p-5">
+                    <div className="flex items-center gap-3 rounded-md bg-[#eaf8ff] p-4">
+                      <ScrollText className="size-6 text-[#1697cf]" aria-hidden="true" />
+                      <span className="text-sm font-bold text-slate-700">
+                        Ordinance summaries
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-md bg-violet-50 p-4">
+                      <MessagesSquare className="size-6 text-violet-600" aria-hidden="true" />
+                      <span className="text-sm font-bold text-slate-700">
+                        Citizen policy chat
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-md bg-lime-50 p-4">
+                      <Building2 className="size-6 text-lime-700" aria-hidden="true" />
+                      <span className="text-sm font-bold text-slate-700">
+                        LGU management portal
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-20 mt-14 flex justify-center">
+            <Link
+              href="/chat"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#1697cf] px-8 text-sm font-bold text-white transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
+            >
+              Start searching
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-slate-200 bg-white px-5 py-8 sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>OrdinanceSync Cebu City digital governance platform.</p>
+          <div className="flex gap-5">
+            <Link className="hover:text-[#1697cf]" href="/chat">
+              Policy Chat
+            </Link>
+            <Link className="hover:text-[#1697cf]" href="/lguportal">
+              LGU Portal
+            </Link>
+          </div>
+        </div>
+      </footer>
+    </main>
+  )
+}
