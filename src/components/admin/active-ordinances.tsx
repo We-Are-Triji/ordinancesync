@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Send,
   Trash2,
   X,
 } from "lucide-react"
@@ -17,6 +18,7 @@ import NewPolicyModal from "./new-policy-modal"
 import PolicyDetailModal from "./policy-detail-modal"
 import EditPolicyModal from "./edit-policy-modal"
 import DeletePolicyDialog from "./delete-policy-dialog"
+import DispatchModal from "./dispatch-modal"
 
 const PAGE_SIZE = 10
 
@@ -60,6 +62,7 @@ export default function ActiveOrdinances() {
   const [selected, setSelected] = useState<Ordinance | null>(null)
   const [editing, setEditing] = useState<Ordinance | null>(null)
   const [deleting, setDeleting] = useState<Ordinance | null>(null)
+  const [dispatching, setDispatching] = useState<Ordinance | null>(null)
 
   // Debounce the search box so we don't hit the API on every keystroke.
   useEffect(() => {
@@ -293,6 +296,18 @@ export default function ActiveOrdinances() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
+                            setDispatching(o)
+                          }}
+                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-[#1697cf]/10 hover:text-[#1697cf]"
+                          aria-label={`Dispatch notifications for ${o.ordinanceNumber}`}
+                          title="AI Dispatch"
+                        >
+                          <Send className="size-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
                             setEditing(o)
                           }}
                           className="rounded-md p-1.5 text-slate-500 transition hover:bg-[#1697cf]/10 hover:text-[#1697cf]"
@@ -373,6 +388,12 @@ export default function ActiveOrdinances() {
           ordinance={deleting}
           onClose={() => setDeleting(null)}
           onDeleted={handleDeleted}
+        />
+      )}
+      {dispatching && (
+        <DispatchModal
+          ordinance={dispatching}
+          onClose={() => setDispatching(null)}
         />
       )}
     </div>

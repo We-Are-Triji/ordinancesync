@@ -41,3 +41,30 @@ export interface PaginatedOffices {
   total: number
   totalPages: number
 }
+
+// One AI-drafted notification targeted at a single affected office.
+export interface DispatchDraft {
+  officeId: string
+  officeName: string
+  email: string
+  subject: string
+  message: string
+}
+
+export type DispatchItemStatus = "pending" | "sent" | "failed"
+
+export interface DispatchItem extends DispatchDraft {
+  status: DispatchItemStatus
+  error?: string
+  sentAt?: string
+}
+
+export interface Dispatch {
+  _id: string
+  ordinanceId: string
+  ordinanceNumber: string
+  ordinanceTitle: string
+  items: DispatchItem[]
+  createdAt: string
+  dispatchedAt?: string
+}
