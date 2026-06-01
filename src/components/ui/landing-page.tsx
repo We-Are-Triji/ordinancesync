@@ -1,14 +1,11 @@
 "use client"
 
 import Image from "next/image"
-import Link from "next/link"
-import { useEffect, useState } from "react"
 import {
   ArrowRight,
   Bot,
   Building2,
   CheckCircle2,
-  Landmark,
   LayoutDashboard,
   LockKeyhole,
   MessagesSquare,
@@ -16,6 +13,8 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react"
+
+import { TransitionLink } from "@/components/ui/transition-link"
 
 const services = [
   {
@@ -50,52 +49,11 @@ const governancePoints = [
   "Administrative tools for LGU teams",
 ]
 
-const navItems = [
-  { label: "Home", sectionId: "home", key: "home" },
-  { label: "About us", sectionId: "about", key: "about" },
-  { label: "Services", sectionId: "services", key: "services" },
-  { label: "Policy Chat", href: "/chat", key: "chat" },
-] as const
-
-type NavItem = (typeof navItems)[number]
-type SectionNavItem = Extract<NavItem, { sectionId: string }>
-
 const cebuCitySealUrl =
   "https://upload.wikimedia.org/wikipedia/commons/5/5c/Cebu_City_seal.svg"
 
 export default function LandingPage() {
-  const [activeNav, setActiveNav] = useState("home")
-
-  useEffect(() => {
-    if (window.location.hash) {
-      window.history.replaceState(null, "", window.location.pathname)
-    }
-
-    const observedSections = navItems
-      .filter((item): item is SectionNavItem => "sectionId" in item)
-      .map((item) => document.getElementById(item.sectionId))
-      .filter((section): section is HTMLElement => Boolean(section))
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleEntry = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-
-        if (visibleEntry?.target.id) {
-          setActiveNav(visibleEntry.target.id)
-        }
-      },
-      {
-        rootMargin: "-25% 0px -55% 0px",
-        threshold: [0.15, 0.35, 0.6],
-      }
-    )
-
-    observedSections.forEach((section) => observer.observe(section))
-    return () => observer.disconnect()
-  }, [])
-
+  // Smooth-scroll helper for in-page CTAs (e.g. the hero "View more" button).
   const scrollToSection = (sectionId: string) => {
     document
       .getElementById(sectionId)
@@ -103,88 +61,8 @@ export default function LandingPage() {
     window.history.replaceState(null, "", window.location.pathname)
   }
 
-  const renderNavLink = (item: NavItem) => {
-    const isActive = activeNav === item.key
-    const activeDot = isActive && (
-      <span className="absolute left-1/2 top-0 size-2 -translate-x-1/2 rounded-full bg-cyan-400 md:-left-1 md:-top-1 md:translate-x-0" />
-    )
-
-    const linkClassName = `relative shrink-0 rounded-md px-2 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf] ${
-      isActive ? "text-[#1697cf]" : "text-slate-600 hover:text-[#1697cf]"
-    }`
-
-    if ("href" in item) {
-      return (
-        <Link
-          key={item.key}
-          className={linkClassName}
-          href={item.href}
-          onClick={() => setActiveNav(item.key)}
-        >
-          {activeDot}
-          {item.label}
-        </Link>
-      )
-    }
-
-    return (
-      <button
-        key={item.key}
-        className={linkClassName}
-        type="button"
-        onClick={() => {
-          setActiveNav(item.key)
-          scrollToSection(item.sectionId)
-        }}
-      >
-        {activeDot}
-        {item.label}
-      </button>
-    )
-  }
-
   return (
     <main className="min-h-screen bg-white text-slate-950">
-      <div className="h-1 bg-[#1697cf]" />
-
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
-          <Link
-            href="/"
-            className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1697cf] sm:gap-3"
-            aria-label="OrdinanceSync home"
-          >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1697cf] text-white sm:size-10">
-              <Landmark className="size-5" aria-hidden="true" />
-            </span>
-            <span className="truncate text-[15px] font-black uppercase text-[#1697cf] sm:text-xl">
-              OrdinanceSync
-            </span>
-          </Link>
-
-          <nav
-            aria-label="Primary navigation"
-            className="hidden items-center gap-10 text-sm font-semibold text-slate-600 md:flex"
-          >
-            {navItems.map(renderNavLink)}
-          </nav>
-
-          <Link
-            href="/admin"
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-[#1697cf] px-3 text-xs font-bold text-white shadow-sm transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf] sm:px-5 sm:text-sm"
-          >
-            LGU Portal
-          </Link>
-        </div>
-
-        <nav
-          aria-label="Primary navigation"
-          className="flex gap-6 overflow-x-auto px-4 pb-3 text-sm font-semibold [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden"
-        >
-          {navItems.map(renderNavLink)}
-        </nav>
-      </header>
-
       <section id="home" className="relative overflow-hidden bg-[#eaf8ff]">
         <div className="absolute -left-16 bottom-[-54px] size-44 rounded-full bg-teal-400" />
         <div className="absolute -right-24 top-36 hidden h-64 w-40 rounded-l-full bg-[#1697cf] lg:block" />
@@ -204,18 +82,19 @@ export default function LandingPage() {
               public policy platform.
             </p>
             <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-              <Link
+              <TransitionLink
                 href="/chat"
-                className="inline-flex h-12 items-center justify-center rounded-md bg-[#1697cf] px-8 text-sm font-bold text-white shadow-sm transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#1697cf] px-8 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:bg-[#087fb1] hover:shadow-lg hover:shadow-[#1697cf]/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
               >
                 Search policies
-              </Link>
+                <ArrowRight
+                  className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </TransitionLink>
               <button
                 type="button"
-                onClick={() => {
-                  setActiveNav("about")
-                  scrollToSection("about")
-                }}
+                onClick={() => scrollToSection("about")}
                 className="inline-flex h-12 items-center justify-center rounded-md border border-[#1697cf] bg-white/50 px-8 text-sm font-bold text-[#1697cf] transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
               >
                 View more
@@ -344,13 +223,16 @@ export default function LandingPage() {
           </div>
 
           <div className="relative z-20 mt-14 flex justify-center">
-            <Link
+            <TransitionLink
               href="/chat"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#1697cf] px-8 text-sm font-bold text-white transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
+              className="group inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#1697cf] px-8 text-sm font-bold text-white transition-all duration-200 hover:bg-[#087fb1] hover:shadow-lg hover:shadow-[#1697cf]/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
             >
               Start searching
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
+              <ArrowRight
+                className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </TransitionLink>
           </div>
         </div>
       </section>
@@ -359,12 +241,12 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>OrdinanceSync Cebu City digital governance platform.</p>
           <div className="flex gap-5">
-            <Link className="hover:text-[#1697cf]" href="/chat">
+            <TransitionLink className="transition-colors hover:text-[#1697cf]" href="/chat">
               Policy Chat
-            </Link>
-            <Link className="hover:text-[#1697cf]" href="/admin">
+            </TransitionLink>
+            <TransitionLink className="transition-colors hover:text-[#1697cf]" href="/admin">
               LGU Portal
-            </Link>
+            </TransitionLink>
           </div>
         </div>
       </footer>

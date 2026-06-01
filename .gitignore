@@ -55,3 +55,6 @@ application_default_credentials.json
 agent/.adk/
 agent/**/.adk/
 **/session.db
+
+# clerk configuration (can include secrets)
+/.clerk/
