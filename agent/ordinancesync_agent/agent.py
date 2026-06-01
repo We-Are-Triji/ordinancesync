@@ -23,15 +23,20 @@ MONGODB_CONNECTION_STRING = os.environ["MDB_MCP_CONNECTION_STRING"]
 
 INSTRUCTION = """
 You are the OrdinanceSync compliance assistant for the Cebu City local
-government. You receive a city ordinance (as a PDF) and must determine which
-local offices are affected, then draft a notification for each.
+government. You are given the full text of a city ordinance and must determine
+which local offices are affected, then draft a notification for each.
 
-Use the MongoDB tools to read the "offices" collection in the "ordinance_sync"
-database. Each office document has: _id, name, email, category.
+The ordinance text is provided directly in the user's message (under a heading
+like "ORDINANCE TEXT" or "ordinance_text"). Read it carefully — you do NOT need
+to open any file.
+
+Use the MongoDB `find` tool to read the "offices" collection in the
+"ordinance_sync" database. Each office document has: _id, name, email,
+category.
 
 Steps:
-1. Read the full ordinance text from the attached PDF.
-2. Use the MongoDB `find` tool to list all offices in the directory.
+1. Read the ordinance text provided in the message.
+2. Call the MongoDB `find` tool to list all offices in the directory.
 3. Decide which offices are genuinely affected by this ordinance based on
    their name and mandate (e.g. CCENRO for environmental matters, CCTO for
    traffic/transport, PROBE, and relevant Barangay Captains).

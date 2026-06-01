@@ -60,7 +60,6 @@ export default function PolicyDetailModal({
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <dl className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Detail label="Office" value={ordinance.office} />
             <Detail label="Status" value={ordinance.status} />
             <Detail label="Pages" value={String(ordinance.pageCount)} />
             <Detail label="Size" value={formatBytes(ordinance.fileSize)} />

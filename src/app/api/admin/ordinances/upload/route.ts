@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { Readable } from "node:stream"
 import { getBucket } from "@/lib/mongodb"
 import { extractPdfText } from "@/lib/pdf-text"
+import { extractOrdinanceMetadata, isGeminiConfigured } from "@/lib/gemini"
 
 export const runtime = "nodejs"
 
@@ -53,12 +54,31 @@ export async function POST(request: NextRequest) {
       console.error("PDF text extraction failed (continuing):", err)
     }
 
+    // AI-extract the ordinance number, title, and summary for human review.
+    // Best-effort: never block the upload if extraction fails.
+    let ordinanceNumber = ""
+    let title = ""
+    let summary = ""
+    if (text.trim() && isGeminiConfigured()) {
+      try {
+        const meta = await extractOrdinanceMetadata(text)
+        ordinanceNumber = meta.ordinanceNumber
+        title = meta.title
+        summary = meta.summary
+      } catch (err) {
+        console.error("Metadata extraction failed (continuing):", err)
+      }
+    }
+
     return NextResponse.json({
       fileId: uploadStream.id.toString(),
       fileName: file.name,
       fileSize: file.size,
       text,
       extractedPages,
+      ordinanceNumber,
+      title,
+      summary,
     })
   } catch (err) {
     console.error("Upload failed:", err)

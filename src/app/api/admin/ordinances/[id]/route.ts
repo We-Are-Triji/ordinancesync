@@ -30,7 +30,7 @@ export async function PATCH(
 
   try {
     const body = await request.json()
-    const { ordinanceNumber, title, office, status, summary } = body
+    const { ordinanceNumber, title, status, summary } = body
 
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
       return NextResponse.json(
@@ -54,17 +54,10 @@ export async function PATCH(
         { status: 400 }
       )
     }
-    if (office !== undefined && String(office).trim() === "") {
-      return NextResponse.json(
-        { error: "Office cannot be empty" },
-        { status: 400 }
-      )
-    }
 
     const updated = await updateOrdinance(id, {
       ordinanceNumber: ordinanceNumber?.trim(),
       title: title?.trim(),
-      office: office?.trim(),
       status,
       summary,
     })

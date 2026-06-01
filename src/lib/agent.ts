@@ -56,8 +56,10 @@ function normalizeDrafts(raw: unknown): DispatchDraft[] {
 }
 
 /**
- * Calls the deployed Agent Engine reasoning engine via its REST `:query`
- * endpoint. Auth uses application default credentials (service account).
+ * Runs the dispatch analysis on the deployed Agent Engine. Uses the same
+ * proven flow as the chat agent: create a session, then async_stream_query.
+ * The agent reads the offices directory via the MongoDB MCP server and returns
+ * a JSON array of per-office notification drafts.
  */
 export async function analyzeOrdinance(
   input: AnalyzeInput
@@ -72,38 +74,59 @@ export async function analyzeOrdinance(
     scopes: ["https://www.googleapis.com/auth/cloud-platform"],
   })
   const tokenClient = await auth.getClient()
-  const token = await tokenClient.getAccessToken()
+  const tokenObj = await tokenClient.getAccessToken()
+  const token = tokenObj.token
+  if (!token) throw new Error("Failed to obtain Google access token.")
 
-  const endpoint =
+  const base =
     `https://${LOCATION}-aiplatform.googleapis.com/v1/` +
     `projects/${PROJECT}/locations/${LOCATION}/` +
-    `reasoningEngines/${AGENT_ENGINE_ID}:query`
+    `reasoningEngines/${AGENT_ENGINE_ID}`
 
-  const instruction =
+  const ordinanceBody =
+    input.ordinanceText && input.ordinanceText.trim()
+      ? `\n\n=== ORDINANCE TEXT ===\n${input.ordinanceText.slice(0, 12000)}`
+      : ""
+
+  const message =
     `Analyze the following Cebu City ordinance "${input.ordinanceNumber} - ` +
-    `${input.ordinanceTitle}". Use the MongoDB tools to read the "offices" ` +
-    `collection. Determine which offices are affected by this ordinance. ` +
-    `For each affected office, draft a short, localized Cebuano compliance ` +
-    `checklist. Respond ONLY with a JSON array where each item has: ` +
-    `officeId, officeName, email, subject, message.`
+    `${input.ordinanceTitle}". Use the MongoDB find tool to read the "offices" ` +
+    `collection in the ordinance_sync database. Determine which offices are ` +
+    `affected by this ordinance. For each affected office, draft a short, ` +
+    `localized Cebuano compliance checklist. Respond ONLY with a JSON array ` +
+    `where each item has: officeId, officeName, email, subject, message.` +
+    ordinanceBody
 
-  // Prefer the pre-extracted text (avoids re-uploading/re-parsing heavy PDFs
-  // on every dispatch). Only send the PDF bytes if text isn't available.
-  const inputPayload: Record<string, unknown> = { instruction }
-  if (input.ordinanceText && input.ordinanceText.trim()) {
-    inputPayload.ordinance_text = input.ordinanceText
-  } else if (input.pdfBase64) {
-    inputPayload.pdf_base64 = input.pdfBase64
-  }
-
-  const res = await fetch(endpoint, {
+  // 1) Create a session.
+  const sessRes = await fetch(`${base}:query`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token.token}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      input: inputPayload,
+      class_method: "create_session",
+      input: { user_id: "dispatch" },
+    }),
+  })
+  if (!sessRes.ok) {
+    const detail = await sessRes.text().catch(() => "")
+    throw new Error(`Create session failed (${sessRes.status}): ${detail.slice(0, 200)}`)
+  }
+  const sessData = await sessRes.json()
+  const sessionId = sessData?.output?.id ?? sessData?.output?.session_id
+  if (!sessionId) throw new Error("Dispatch agent did not return a session id.")
+
+  // 2) Stream the query.
+  const res = await fetch(`${base}:streamQuery?alt=sse`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      class_method: "async_stream_query",
+      input: { user_id: "dispatch", session_id: sessionId, message },
     }),
   })
 
@@ -112,25 +135,38 @@ export async function analyzeOrdinance(
     throw new Error(`Agent query failed (${res.status}): ${detail.slice(0, 300)}`)
   }
 
-  const payload = await res.json()
+  const raw = await res.text()
 
-  // Agent Engine wraps the agent's return value under `output`. The agent is
-  // expected to return either a JSON array or an object with a `drafts` key.
-  const output = payload.output ?? payload
-  let parsed: unknown = output
+  // Surface backend errors (bad model, tool errors) clearly.
+  if (raw.includes('"error_code"') || (raw.includes('"code"') && !raw.includes('"content"'))) {
+    const m = raw.match(/"(?:error_message|message)":\s*"([^"]+)"/)
+    throw new Error(`Dispatch agent error: ${(m?.[1] ?? raw).slice(0, 200)}`)
+  }
 
-  if (typeof output === "string") {
+  // Accumulate text from SSE/NDJSON events.
+  const texts: string[] = []
+  for (const line of raw.split("\n").map((l) => l.replace(/^data:\s*/, "").trim()).filter(Boolean)) {
     try {
-      parsed = JSON.parse(output)
+      const event = JSON.parse(line)
+      const parts =
+        event?.content?.parts ?? event?.output?.content?.parts ?? []
+      for (const p of parts) if (typeof p?.text === "string") texts.push(p.text)
     } catch {
-      // Sometimes the model wraps JSON in markdown fences; strip and retry.
-      const match = output.match(/\[[\s\S]*\]/)
-      parsed = match ? JSON.parse(match[0]) : []
+      // skip non-JSON lines
     }
   }
 
+  const combined = texts.join("").trim()
+  let parsed: unknown = []
+  try {
+    parsed = JSON.parse(combined)
+  } catch {
+    const match = combined.match(/\[[\s\S]*\]/)
+    parsed = match ? JSON.parse(match[0]) : []
+  }
+
   const draftsArray =
-    parsed && typeof parsed === "object" && "drafts" in parsed
+    parsed && typeof parsed === "object" && !Array.isArray(parsed) && "drafts" in parsed
       ? (parsed as { drafts: unknown }).drafts
       : parsed
 

@@ -4,7 +4,6 @@ export interface Ordinance {
   _id: string
   ordinanceNumber: string
   title: string
-  office: string
   status: OrdinanceStatus
   pageCount: number
   fileId: string

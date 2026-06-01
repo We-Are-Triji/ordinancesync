@@ -15,7 +15,6 @@ function serialize(doc: WithId<Document>): Ordinance {
     _id: doc._id.toString(),
     ordinanceNumber: doc.ordinanceNumber ?? "",
     title: doc.title ?? "",
-    office: doc.office ?? "",
     status: (doc.status as OrdinanceStatus) ?? "active",
     pageCount: doc.pageCount ?? 0,
     fileId: doc.fileId?.toString() ?? "",
@@ -64,7 +63,6 @@ export async function listOrdinances(
     query.$or = [
       { ordinanceNumber: regex },
       { title: regex },
-      { office: regex },
     ]
   }
 
@@ -95,7 +93,6 @@ export async function getOrdinance(id: string): Promise<Ordinance | null> {
 export interface CreateOrdinanceInput {
   ordinanceNumber: string
   title: string
-  office: string
   status?: OrdinanceStatus
   pageCount: number
   fileId: string
@@ -113,7 +110,6 @@ export async function createOrdinance(
   const doc = {
     ordinanceNumber: input.ordinanceNumber,
     title: input.title,
-    office: input.office,
     status: input.status ?? "active",
     pageCount: input.pageCount,
     fileId: new ObjectId(input.fileId),
@@ -131,7 +127,6 @@ export async function createOrdinance(
 export interface UpdateOrdinanceInput {
   ordinanceNumber?: string
   title?: string
-  office?: string
   status?: OrdinanceStatus
   summary?: string
 }
@@ -144,7 +139,7 @@ export async function updateOrdinance(
   const db = await getDb()
 
   const update: Record<string, unknown> = { updatedAt: new Date() }
-  for (const key of ["ordinanceNumber", "title", "office", "status", "summary"] as const) {
+  for (const key of ["ordinanceNumber", "title", "status", "summary"] as const) {
     if (input[key] !== undefined) update[key] = input[key]
   }
 
@@ -187,7 +182,6 @@ export async function deleteOrdinance(id: string): Promise<boolean> {
 export interface OrdinanceContext {
   ordinanceNumber: string
   title: string
-  office: string
   status: OrdinanceStatus
   summary: string
   text: string
@@ -212,7 +206,6 @@ export async function getOrdinanceContext(
   return docs.map((d) => ({
     ordinanceNumber: d.ordinanceNumber ?? "",
     title: d.title ?? "",
-    office: d.office ?? "",
     status: (d.status as OrdinanceStatus) ?? "active",
     summary: d.summary ?? "",
     text: (d.text ?? "").slice(0, perDocTextLimit),

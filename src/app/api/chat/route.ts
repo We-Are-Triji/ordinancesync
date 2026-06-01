@@ -37,7 +37,6 @@ function buildGroundingContext(
     const parts = [
       `[${i + 1}] Ordinance Number: ${o.ordinanceNumber}`,
       `Title: ${o.title}`,
-      `Office: ${o.office}`,
       `Status: ${o.status}`,
     ]
     if (o.summary) parts.push(`Summary: ${o.summary}`)

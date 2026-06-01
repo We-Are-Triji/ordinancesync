@@ -3,17 +3,28 @@
 import { useCallback, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import {
+  AlertTriangle,
   CheckCircle2,
   FileText,
   Loader2,
+  Mail,
+  Send,
+  Sparkles,
   UploadCloud,
   X,
 } from "lucide-react"
-import type { Ordinance } from "@/lib/types"
+import type { DispatchDraft, Ordinance } from "@/lib/types"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
-type Stage = "select" | "uploading" | "preview" | "saving"
+type Stage =
+  | "select"
+  | "uploading"
+  | "review" // review AI-extracted metadata
+  | "creating" // saving ordinance + running dispatch analysis
+  | "dispatch" // review affected offices + drafts
+  | "dispatching" // sending emails
+  | "done"
 
 interface UploadResult {
   fileId: string
@@ -21,10 +32,22 @@ interface UploadResult {
   fileSize: number
   text?: string
   extractedPages?: number
+  ordinanceNumber?: string
+  title?: string
+  summary?: string
+}
+
+interface SendResultItem {
+  officeName: string
+  email: string
+  status: "sent" | "failed"
+  error?: string
 }
 
 interface NewPolicyModalProps {
   onClose: () => void
+  // Called once the ordinance has been created (so the table can refresh),
+  // regardless of dispatch outcome.
   onCreated: (ordinance: Ordinance) => void
 }
 
@@ -35,6 +58,7 @@ export default function NewPolicyModal({
   const [stage, setStage] = useState<Stage>("select")
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [uploaded, setUploaded] = useState<UploadResult | null>(null)
   const [pageCount, setPageCount] = useState(0)
@@ -42,14 +66,16 @@ export default function NewPolicyModal({
 
   const [ordinanceNumber, setOrdinanceNumber] = useState("")
   const [title, setTitle] = useState("")
-  const [office, setOffice] = useState("")
   const [summary, setSummary] = useState("")
+
+  const [created, setCreated] = useState<Ordinance | null>(null)
+  const [drafts, setDrafts] = useState<DispatchDraft[]>([])
+  const [results, setResults] = useState<SendResultItem[]>([])
 
   const inputRef = useRef<HTMLInputElement>(null)
 
   const startUpload = useCallback((selected: File) => {
     setError(null)
-
     if (selected.type !== "application/pdf") {
       setError("Only PDF files are accepted.")
       return
@@ -76,8 +102,11 @@ export default function NewPolicyModal({
         const result = JSON.parse(xhr.responseText) as UploadResult
         setUploaded(result)
         setProgress(100)
-        setStage("preview")
-        if (!title) setTitle(selected.name.replace(/\.pdf$/i, ""))
+        // Pre-fill from AI extraction; fall back to filename for the title.
+        setOrdinanceNumber(result.ordinanceNumber ?? "")
+        setTitle(result.title || selected.name.replace(/\.pdf$/i, ""))
+        setSummary(result.summary ?? "")
+        setStage("review")
       } else {
         let message = "Upload failed."
         try {
@@ -94,7 +123,7 @@ export default function NewPolicyModal({
     }
 
     xhr.send(formData)
-  }, [title])
+  }, [])
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
@@ -103,16 +132,19 @@ export default function NewPolicyModal({
     if (dropped) startUpload(dropped)
   }
 
+  // Confirm metadata -> create ordinance -> immediately run dispatch analysis.
   async function handleConfirm() {
     if (!uploaded) return
-    if (!ordinanceNumber.trim() || !title.trim() || !office.trim()) {
-      setError("Ordinance number, title, and office are required.")
+    if (!ordinanceNumber.trim() || !title.trim()) {
+      setError("Ordinance number and title are required.")
       return
     }
 
-    setStage("saving")
+    setStage("creating")
     setError(null)
+    setNotice(null)
 
+    let createdOrdinance: Ordinance
     try {
       const res = await fetch("/api/admin/ordinances", {
         method: "POST",
@@ -120,7 +152,6 @@ export default function NewPolicyModal({
         body: JSON.stringify({
           ordinanceNumber,
           title,
-          office,
           summary,
           pageCount,
           fileId: uploaded.fileId,
@@ -130,34 +161,113 @@ export default function NewPolicyModal({
           status: "active",
         }),
       })
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to save policy.")
+        throw new Error(data.error ?? "Failed to save ordinance.")
       }
-
-      const created = (await res.json()) as Ordinance
-      onCreated(created)
+      createdOrdinance = (await res.json()) as Ordinance
+      setCreated(createdOrdinance)
+      // Let the table refresh right away — the ordinance now exists.
+      onCreated(createdOrdinance)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save policy.")
-      setStage("preview")
+      setError(err instanceof Error ? err.message : "Failed to save ordinance.")
+      setStage("review")
+      return
+    }
+
+    // Run AI dispatch analysis automatically.
+    try {
+      const res = await fetch("/api/admin/dispatch/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ordinanceId: createdOrdinance._id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        // Ordinance is saved; dispatch just isn't available. Let the user finish.
+        setNotice(
+          data.error ??
+            "The ordinance was saved, but AI dispatch is unavailable right now."
+        )
+        setDrafts([])
+        setStage("dispatch")
+        return
+      }
+      setDrafts(data.drafts ?? [])
+      if (!data.drafts || data.drafts.length === 0) {
+        setNotice("The AI did not identify any affected offices for this ordinance.")
+      }
+      setStage("dispatch")
+    } catch {
+      setNotice("The ordinance was saved, but dispatch analysis failed.")
+      setDrafts([])
+      setStage("dispatch")
+    }
+  }
+
+  function updateDraft(index: number, patch: Partial<DispatchDraft>) {
+    setDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, ...patch } : d)))
+  }
+
+  function removeDraft(index: number) {
+    setDrafts((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleDispatch() {
+    if (!created || drafts.length === 0) return
+    setStage("dispatching")
+    setError(null)
+    try {
+      const res = await fetch("/api/admin/dispatch/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ordinanceId: created._id,
+          ordinanceNumber: created.ordinanceNumber,
+          ordinanceTitle: created.title,
+          drafts,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Dispatch failed.")
+      setResults(data.items ?? [])
+      setStage("done")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Dispatch failed.")
+      setStage("dispatch")
     }
   }
 
   const fileUrl = uploaded
     ? `/api/admin/ordinances/file/${uploaded.fileId}`
     : null
+  const sentCount = results.filter((r) => r.status === "sent").length
+
+  const titleMap: Record<Stage, string> = {
+    select: "New Ordinance",
+    uploading: "Uploading",
+    review: "Review Ordinance Details",
+    creating: "Saving & Analyzing",
+    dispatch: "Review & Dispatch Notifications",
+    dispatching: "Dispatching",
+    done: "Dispatch Complete",
+  }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Add new policy"
+      aria-label="New ordinance"
     >
       <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 className="text-lg font-black text-slate-900">New Policy</h2>
+          <h2 className="inline-flex items-center gap-2 text-lg font-black text-slate-900">
+            {(stage === "dispatch" || stage === "done" || stage === "dispatching") && (
+              <Sparkles className="size-5 text-[#1697cf]" aria-hidden="true" />
+            )}
+            {titleMap[stage]}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -172,6 +282,12 @@ export default function NewPolicyModal({
           {error && (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
               {error}
+            </div>
+          )}
+          {notice && (
+            <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>{notice}</span>
             </div>
           )}
 
@@ -195,7 +311,8 @@ export default function NewPolicyModal({
                 Drag & drop a PDF here, or click to browse
               </p>
               <p className="text-xs font-semibold text-slate-400">
-                PDF only, up to 25 MB
+                PDF only, up to 25 MB. We&apos;ll read the ordinance number and
+                title automatically.
               </p>
               <input
                 ref={inputRef}
@@ -214,7 +331,7 @@ export default function NewPolicyModal({
             <div className="flex flex-col items-center gap-4 py-16">
               <Loader2 className="size-10 animate-spin text-[#1697cf]" aria-hidden="true" />
               <p className="text-sm font-bold text-slate-700">
-                Uploading {file?.name}
+                Uploading & reading {file?.name}
               </p>
               <div className="h-2.5 w-full max-w-sm overflow-hidden rounded-full bg-slate-200">
                 <div
@@ -226,11 +343,12 @@ export default function NewPolicyModal({
             </div>
           )}
 
-          {(stage === "preview" || stage === "saving") && fileUrl && (
+          {stage === "review" && fileUrl && (
             <div className="flex flex-col gap-5">
               <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
                 <CheckCircle2 className="size-4" aria-hidden="true" />
-                Upload complete. Review the preview and fill in the details.
+                We extracted these details from the PDF. Review and edit before
+                confirming.
               </div>
 
               <PdfPreview file={fileUrl} onLoadPageCount={setPageCount} />
@@ -249,13 +367,12 @@ export default function NewPolicyModal({
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Office
+                    Pages
                   </span>
                   <input
-                    value={office}
-                    onChange={(e) => setOffice(e.target.value)}
-                    placeholder="e.g. City Council"
-                    className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+                    value={pageCount || uploaded?.extractedPages || 0}
+                    disabled
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
@@ -271,7 +388,7 @@ export default function NewPolicyModal({
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Summary (optional)
+                    Summary
                   </span>
                   <textarea
                     value={summary}
@@ -285,32 +402,175 @@ export default function NewPolicyModal({
 
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
                 <FileText className="size-3.5" aria-hidden="true" />
-                {uploaded?.fileName} · {pageCount} page(s)
+                {uploaded?.fileName}
               </div>
+            </div>
+          )}
+
+          {stage === "creating" && (
+            <div className="flex flex-col items-center gap-4 py-16 text-center">
+              <Loader2 className="size-10 animate-spin text-[#1697cf]" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-bold text-slate-700">
+                  Saving ordinance and analyzing affected offices...
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-400">
+                  Gemini is matching offices from the directory and drafting
+                  Cebuano checklists.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {stage === "dispatch" && (
+            <div className="space-y-4">
+              {drafts.length > 0 ? (
+                <>
+                  <p className="text-sm font-semibold text-slate-600">
+                    {drafts.length} office{drafts.length === 1 ? "" : "s"} affected.
+                    Review and edit each notification before dispatching.
+                  </p>
+                  {drafts.map((d, i) => (
+                    <div
+                      key={`${d.officeId}-${i}`}
+                      className="rounded-lg border border-slate-200 p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-slate-800">
+                            {d.officeName || "Unnamed office"}
+                          </p>
+                          <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                            <Mail className="size-3.5" aria-hidden="true" />
+                            {d.email}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeDraft(i)}
+                          className="shrink-0 rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <input
+                        value={d.subject}
+                        onChange={(e) => updateDraft(i, { subject: e.target.value })}
+                        placeholder="Email subject"
+                        className="mb-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+                      />
+                      <textarea
+                        value={d.message}
+                        onChange={(e) => updateDraft(i, { message: e.target.value })}
+                        rows={5}
+                        placeholder="Message"
+                        className="w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+                      />
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="py-8 text-center text-sm font-semibold text-slate-400">
+                  No notifications to dispatch. The ordinance has been saved.
+                </div>
+              )}
+            </div>
+          )}
+
+          {stage === "dispatching" && (
+            <div className="flex flex-col items-center gap-4 py-16 text-center">
+              <Loader2 className="size-10 animate-spin text-[#1697cf]" aria-hidden="true" />
+              <p className="text-sm font-bold text-slate-700">
+                Dispatching notifications...
+              </p>
+            </div>
+          )}
+
+          {stage === "done" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                <CheckCircle2 className="size-5" aria-hidden="true" />
+                Dispatched {sentCount} of {results.length} notifications.
+              </div>
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                {results.map((r, i) => (
+                  <li
+                    key={`${r.email}-${i}`}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                  >
+                    <span className="min-w-0">
+                      <span className="font-bold text-slate-800">{r.officeName}</span>
+                      <span className="ml-2 text-slate-500">{r.email}</span>
+                    </span>
+                    {r.status === "sent" ? (
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                        Sent
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600"
+                        title={r.error}
+                      >
+                        Failed
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
 
-        {(stage === "preview" || stage === "saving") && (
+        {/* Footer actions per stage */}
+        {stage === "review" && (
           <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
             <button
               type="button"
               onClick={onClose}
-              disabled={stage === "saving"}
-              className="rounded-md border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-md border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={stage === "saving"}
-              className="inline-flex items-center gap-2 rounded-md bg-[#1697cf] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#087fb1] disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-md bg-[#1697cf] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#087fb1]"
             >
-              {stage === "saving" && (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              )}
-              {stage === "saving" ? "Saving..." : "Confirm"}
+              Confirm &amp; Analyze
+            </button>
+          </div>
+        )}
+
+        {stage === "dispatch" && (
+          <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+            >
+              {drafts.length > 0 ? "Skip" : "Close"}
+            </button>
+            {drafts.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDispatch}
+                className="inline-flex items-center gap-2 rounded-md bg-[#1697cf] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#087fb1]"
+              >
+                <Send className="size-4" aria-hidden="true" />
+                Approve &amp; Dispatch
+              </button>
+            )}
+          </div>
+        )}
+
+        {stage === "done" && (
+          <div className="flex justify-end border-t border-slate-200 px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md bg-[#1697cf] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#087fb1]"
+            >
+              Done
             </button>
           </div>
         )}

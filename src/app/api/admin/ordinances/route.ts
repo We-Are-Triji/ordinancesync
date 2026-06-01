@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { ordinanceNumber, title, office, status, pageCount, fileId, fileName, fileSize, summary, text } = body
+    const { ordinanceNumber, title, status, pageCount, fileId, fileName, fileSize, summary, text } = body
 
-    if (!ordinanceNumber || !title || !office || !fileId) {
+    if (!ordinanceNumber || !title || !fileId) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
     const ordinance = await createOrdinance({
       ordinanceNumber,
       title,
-      office,
       status: (status as OrdinanceStatus) ?? "active",
       pageCount: Number(pageCount) || 0,
       fileId,

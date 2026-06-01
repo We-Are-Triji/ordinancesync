@@ -21,15 +21,14 @@ export default function EditPolicyModal({
     ordinance.ordinanceNumber
   )
   const [title, setTitle] = useState(ordinance.title)
-  const [office, setOffice] = useState(ordinance.office)
   const [status, setStatus] = useState<OrdinanceStatus>(ordinance.status)
   const [summary, setSummary] = useState(ordinance.summary ?? "")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSave() {
-    if (!ordinanceNumber.trim() || !title.trim() || !office.trim()) {
-      setError("Ordinance number, title, and office are required.")
+    if (!ordinanceNumber.trim() || !title.trim()) {
+      setError("Ordinance number and title are required.")
       return
     }
 
@@ -43,7 +42,6 @@ export default function EditPolicyModal({
         body: JSON.stringify({
           ordinanceNumber,
           title,
-          office,
           status,
           summary,
         }),
@@ -101,26 +99,6 @@ export default function EditPolicyModal({
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                Office
-              </span>
-              <input
-                value={office}
-                onChange={(e) => setOffice(e.target.value)}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 sm:col-span-2">
-              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                Title
-              </span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Status
               </span>
               <select
@@ -134,6 +112,16 @@ export default function EditPolicyModal({
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="flex flex-col gap-1.5 sm:col-span-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Title
+              </span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+              />
             </label>
             <label className="flex flex-col gap-1.5 sm:col-span-2">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">

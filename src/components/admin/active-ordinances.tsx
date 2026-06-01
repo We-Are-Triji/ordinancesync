@@ -183,7 +183,7 @@ export default function ActiveOrdinances() {
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by ordinance number, title, or office"
+            placeholder="Search by ordinance number or title"
             className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
             aria-label="Search ordinances"
           />
@@ -220,13 +220,12 @@ export default function ActiveOrdinances() {
 
       <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[700px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Timestamp</th>
                 <th className="px-4 py-3">Ordinance No.</th>
                 <th className="px-4 py-3">Title</th>
-                <th className="px-4 py-3">Office</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Pages</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -235,7 +234,7 @@ export default function ActiveOrdinances() {
             <tbody className="divide-y divide-slate-100 font-mono text-[13px] text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <span className="inline-flex items-center gap-2 font-sans text-sm font-semibold text-slate-500">
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                       Loading log...
@@ -245,7 +244,7 @@ export default function ActiveOrdinances() {
               ) : error ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-4 py-12 text-center font-sans text-sm font-semibold text-red-600"
                   >
                     {error}
@@ -254,7 +253,7 @@ export default function ActiveOrdinances() {
               ) : items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-4 py-12 text-center font-sans text-sm font-semibold text-slate-400"
                   >
                     {hasFilters
@@ -281,9 +280,6 @@ export default function ActiveOrdinances() {
                         {o.title}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-sans text-slate-600">
-                      {o.office}
-                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2.5 py-0.5 font-sans text-xs font-bold capitalize ${
@@ -303,8 +299,8 @@ export default function ActiveOrdinances() {
                             setDispatching(o)
                           }}
                           className="rounded-md p-1.5 text-slate-500 transition hover:bg-[#1697cf]/10 hover:text-[#1697cf]"
-                          aria-label={`Dispatch notifications for ${o.ordinanceNumber}`}
-                          title="AI Dispatch"
+                          aria-label={`Re-dispatch notifications for ${o.ordinanceNumber}`}
+                          title="Re-dispatch notifications"
                         >
                           <Send className="size-4" aria-hidden="true" />
                         </button>
