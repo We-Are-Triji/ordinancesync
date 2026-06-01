@@ -22,3 +22,22 @@ export interface PaginatedOrdinances {
   total: number
   totalPages: number
 }
+
+export type OfficeCategory = "office" | "barangay"
+
+export interface Office {
+  _id: string
+  name: string
+  email: string
+  category: OfficeCategory
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PaginatedOffices {
+  items: Office[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
