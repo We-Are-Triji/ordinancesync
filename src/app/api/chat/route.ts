@@ -14,9 +14,9 @@ import {
 import { findCachedAnswer, storeAnswer } from "@/lib/semantic-cache"
 
 export const runtime = "nodejs"
-
-// NOTE: This endpoint is intentionally public so citizens can use the chat
-// without signing in. Before production, add per-IP rate limiting.
+// AI calls (embedding + Agent Engine query) can take well over 10s. Allow up
+// to 60s so Vercel doesn't kill the request mid-flight.
+export const maxDuration = 60
 
 const MAX_MESSAGE_LENGTH = 1000
 

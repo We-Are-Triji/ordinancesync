@@ -1,4 +1,4 @@
-import { GoogleAuth } from "google-auth-library"
+import { getGoogleAccessToken } from "./google-auth"
 
 // Vertex text embeddings, used for semantic caching of chat answers.
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT
@@ -9,16 +9,6 @@ export function isEmbeddingConfigured(): boolean {
   return Boolean(PROJECT)
 }
 
-async function getToken(): Promise<string> {
-  const auth = new GoogleAuth({
-    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-  })
-  const client = await auth.getClient()
-  const { token } = await client.getAccessToken()
-  if (!token) throw new Error("Failed to obtain Google access token.")
-  return token
-}
-
 /**
  * Returns the embedding vector for a piece of text, or null if embeddings
  * aren't available (so callers can degrade gracefully).
@@ -27,7 +17,7 @@ export async function embed(text: string): Promise<number[] | null> {
   if (!isEmbeddingConfigured()) return null
 
   try {
-    const token = await getToken()
+    const token = await getGoogleAccessToken()
     const endpoint =
       `https://${LOCATION}-aiplatform.googleapis.com/v1/` +
       `projects/${PROJECT}/locations/${LOCATION}/` +

@@ -1,4 +1,4 @@
-import { GoogleAuth } from "google-auth-library"
+import { getGoogleAccessToken } from "./google-auth"
 
 /**
  * Bridges the Next.js backend to the public chat agent on Vertex AI Agent
@@ -25,15 +25,7 @@ function engineBase(): string {
   )
 }
 
-async function getToken(): Promise<string> {
-  const auth = new GoogleAuth({
-    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-  })
-  const client = await auth.getClient()
-  const { token } = await client.getAccessToken()
-  if (!token) throw new Error("Failed to obtain Google access token.")
-  return token
-}
+const getToken = getGoogleAccessToken
 
 /**
  * Creates an Agent Engine session for a user, returning the session id.

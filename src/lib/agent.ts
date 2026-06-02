@@ -1,4 +1,4 @@
-import { GoogleAuth } from "google-auth-library"
+import { getGoogleAccessToken } from "./google-auth"
 import type { DispatchDraft } from "./types"
 
 /**
@@ -70,13 +70,7 @@ export async function analyzeOrdinance(
     )
   }
 
-  const auth = new GoogleAuth({
-    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-  })
-  const tokenClient = await auth.getClient()
-  const tokenObj = await tokenClient.getAccessToken()
-  const token = tokenObj.token
-  if (!token) throw new Error("Failed to obtain Google access token.")
+  const token = await getGoogleAccessToken()
 
   const base =
     `https://${LOCATION}-aiplatform.googleapis.com/v1/` +

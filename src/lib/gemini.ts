@@ -1,4 +1,4 @@
-import { GoogleAuth } from "google-auth-library"
+import { getGoogleAccessToken } from "./google-auth"
 
 // Direct Gemini (Vertex) calls for lightweight, non-agentic tasks like
 // extracting structured metadata from ordinance text.
@@ -11,15 +11,7 @@ export function isGeminiConfigured(): boolean {
   return Boolean(PROJECT)
 }
 
-async function getToken(): Promise<string> {
-  const auth = new GoogleAuth({
-    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-  })
-  const client = await auth.getClient()
-  const { token } = await client.getAccessToken()
-  if (!token) throw new Error("Failed to obtain Google access token.")
-  return token
-}
+const getToken = getGoogleAccessToken
 
 export interface OrdinanceMetadata {
   ordinanceNumber: string

@@ -4,6 +4,8 @@ import { createDispatch } from "@/lib/dispatches"
 import type { DispatchDraft, DispatchItem } from "@/lib/types"
 
 export const runtime = "nodejs"
+// Sending multiple emails sequentially can exceed 10s. Allow 60s.
+export const maxDuration = 60
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

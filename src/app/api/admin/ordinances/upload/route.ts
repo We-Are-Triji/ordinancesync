@@ -5,6 +5,8 @@ import { extractPdfText } from "@/lib/pdf-text"
 import { extractOrdinanceMetadata, isGeminiConfigured } from "@/lib/gemini"
 
 export const runtime = "nodejs"
+// PDF text extraction + AI metadata extraction on large files can exceed 10s.
+export const maxDuration = 60
 
 const MAX_BYTES = 25 * 1024 * 1024 // 25 MB
 

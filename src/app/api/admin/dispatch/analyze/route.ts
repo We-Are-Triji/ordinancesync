@@ -5,6 +5,8 @@ import { getOrdinance } from "@/lib/ordinances"
 import { analyzeOrdinance, isAgentConfigured } from "@/lib/agent"
 
 export const runtime = "nodejs"
+// Dispatch analysis (Agent Engine + MCP) can take well over 10s. Allow 60s.
+export const maxDuration = 60
 
 async function loadPdfBase64(fileId: string): Promise<string | null> {
   if (!ObjectId.isValid(fileId)) return null
