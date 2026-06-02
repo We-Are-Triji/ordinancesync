@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { Readable } from "node:stream"
 import { getBucket } from "@/lib/mongodb"
 import { extractPdfText } from "@/lib/pdf-text"
-import { extractOrdinanceMetadata, isGeminiConfigured } from "@/lib/gemini"
+import {
+  extractOrdinanceMetadata,
+  extractOrdinanceMetadataFromPdf,
+  isGeminiConfigured,
+} from "@/lib/gemini"
 
 export const runtime = "nodejs"
 // PDF text extraction + AI metadata extraction on large files can exceed 10s.
@@ -57,18 +61,27 @@ export async function POST(request: NextRequest) {
     }
 
     // AI-extract the ordinance number, title, and summary for human review.
-    // Best-effort: never block the upload if extraction fails.
+    // Prefer the extracted text; if that's empty (e.g. scanned PDF), fall back
+    // to Gemini reading the PDF bytes directly. Best-effort — never block the
+    // upload, but report whether auto-fill succeeded.
     let ordinanceNumber = ""
     let title = ""
     let summary = ""
-    if (text.trim() && isGeminiConfigured()) {
+    let metadataStatus: "ok" | "partial" | "failed" | "skipped" = "skipped"
+
+    if (isGeminiConfigured()) {
       try {
-        const meta = await extractOrdinanceMetadata(text)
+        const meta = text.trim()
+          ? await extractOrdinanceMetadata(text)
+          : await extractOrdinanceMetadataFromPdf(buffer.toString("base64"))
         ordinanceNumber = meta.ordinanceNumber
         title = meta.title
         summary = meta.summary
+        const gotAll = ordinanceNumber && title && summary
+        metadataStatus = gotAll ? "ok" : (ordinanceNumber || title || summary) ? "partial" : "failed"
       } catch (err) {
         console.error("Metadata extraction failed (continuing):", err)
+        metadataStatus = "failed"
       }
     }
 
@@ -81,6 +94,7 @@ export async function POST(request: NextRequest) {
       ordinanceNumber,
       title,
       summary,
+      metadataStatus,
     })
   } catch (err) {
     console.error("Upload failed:", err)

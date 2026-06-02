@@ -105,11 +105,10 @@ export default function ActiveOrdinances() {
     load(page, search, status)
   }
 
+  // Called by the New Policy modal once the ordinance is created. We refresh
+  // the table data but DO NOT close the modal — it continues to the dispatch
+  // stage. The modal closes itself via onClose when the user is done.
   function handleCreated() {
-    setShowNew(false)
-    // Reset filters, then explicitly reload page 1. Calling load() directly
-    // avoids the case where state is already at defaults (so the reload effect
-    // wouldn't fire and the new ordinance would stay hidden until refresh).
     setSearchInput("")
     setSearch("")
     setStatus("all")

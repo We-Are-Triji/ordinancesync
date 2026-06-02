@@ -7,7 +7,9 @@ import {
   CheckCircle2,
   FileText,
   Loader2,
+  Lock,
   Mail,
+  Pencil,
   Send,
   Sparkles,
   UploadCloud,
@@ -35,6 +37,7 @@ interface UploadResult {
   ordinanceNumber?: string
   title?: string
   summary?: string
+  metadataStatus?: "ok" | "partial" | "failed" | "skipped"
 }
 
 interface SendResultItem {
@@ -67,6 +70,13 @@ export default function NewPolicyModal({
   const [ordinanceNumber, setOrdinanceNumber] = useState("")
   const [title, setTitle] = useState("")
   const [summary, setSummary] = useState("")
+  // Fields are locked (read-only) by default after AI fills them; the user
+  // clicks the pencil to edit. Fields the AI couldn't fill start unlocked.
+  const [unlocked, setUnlocked] = useState({
+    ordinanceNumber: false,
+    title: false,
+    summary: false,
+  })
 
   const [created, setCreated] = useState<Ordinance | null>(null)
   const [drafts, setDrafts] = useState<DispatchDraft[]>([])
@@ -102,10 +112,34 @@ export default function NewPolicyModal({
         const result = JSON.parse(xhr.responseText) as UploadResult
         setUploaded(result)
         setProgress(100)
-        // Pre-fill from AI extraction; fall back to filename for the title.
-        setOrdinanceNumber(result.ordinanceNumber ?? "")
-        setTitle(result.title || selected.name.replace(/\.pdf$/i, ""))
-        setSummary(result.summary ?? "")
+
+        const num = result.ordinanceNumber ?? ""
+        const ttl = result.title ?? ""
+        const sum = result.summary ?? ""
+        setOrdinanceNumber(num)
+        setTitle(ttl)
+        setSummary(sum)
+
+        // Lock fields the AI confidently filled; unlock (for manual entry)
+        // anything it left blank so the user notices it needs input.
+        setUnlocked({
+          ordinanceNumber: !num,
+          title: !ttl,
+          summary: !sum,
+        })
+
+        if (result.metadataStatus === "failed" || (!num && !ttl && !sum)) {
+          setNotice(
+            "We couldn't auto-read the ordinance details from this PDF. Please fill them in manually."
+          )
+        } else if (result.metadataStatus === "partial" || !num || !ttl) {
+          setNotice(
+            "We auto-filled what we could. Please review and complete the highlighted fields."
+          )
+        } else {
+          setNotice(null)
+        }
+
         setStage("review")
       } else {
         let message = "Upload failed."
@@ -345,26 +379,28 @@ export default function NewPolicyModal({
 
           {stage === "review" && fileUrl && (
             <div className="flex flex-col gap-5">
-              <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
-                <CheckCircle2 className="size-4" aria-hidden="true" />
-                We extracted these details from the PDF. Review and edit before
-                confirming.
-              </div>
+              {!notice && (
+                <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  We read these details from the PDF. Tap the pencil to edit any
+                  field, then confirm.
+                </div>
+              )}
 
               <PdfPreview file={fileUrl} onLoadPageCount={setPageCount} />
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Ordinance Number
-                  </span>
-                  <input
-                    value={ordinanceNumber}
-                    onChange={(e) => setOrdinanceNumber(e.target.value)}
-                    placeholder="e.g. ORD-2026-014"
-                    className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
-                  />
-                </label>
+                <LockableField
+                  label="Ordinance Number"
+                  value={ordinanceNumber}
+                  onChange={setOrdinanceNumber}
+                  unlocked={unlocked.ordinanceNumber}
+                  onToggleLock={() =>
+                    setUnlocked((u) => ({ ...u, ordinanceNumber: !u.ordinanceNumber }))
+                  }
+                  placeholder="e.g. ORD-2026-014"
+                />
+
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
                     Pages
@@ -375,29 +411,33 @@ export default function NewPolicyModal({
                     className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                   />
                 </label>
-                <label className="flex flex-col gap-1.5 sm:col-span-2">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Title
-                  </span>
-                  <input
+
+                <div className="sm:col-span-2">
+                  <LockableField
+                    label="Title"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={setTitle}
+                    unlocked={unlocked.title}
+                    onToggleLock={() =>
+                      setUnlocked((u) => ({ ...u, title: !u.title }))
+                    }
                     placeholder="Ordinance title"
-                    className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
                   />
-                </label>
-                <label className="flex flex-col gap-1.5 sm:col-span-2">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Summary
-                  </span>
-                  <textarea
+                </div>
+
+                <div className="sm:col-span-2">
+                  <LockableField
+                    label="Summary"
                     value={summary}
-                    onChange={(e) => setSummary(e.target.value)}
-                    rows={2}
+                    onChange={setSummary}
+                    unlocked={unlocked.summary}
+                    onToggleLock={() =>
+                      setUnlocked((u) => ({ ...u, summary: !u.summary }))
+                    }
                     placeholder="Short description"
-                    className="resize-none rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+                    multiline
                   />
-                </label>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
@@ -575,6 +615,85 @@ export default function NewPolicyModal({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+interface LockableFieldProps {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  unlocked: boolean
+  onToggleLock: () => void
+  placeholder?: string
+  multiline?: boolean
+}
+
+/**
+ * A field that is read-only by default (showing AI-extracted content) with a
+ * pencil button to unlock it for editing. If the value is empty, it renders a
+ * subtle "needs input" treatment.
+ */
+function LockableField({
+  label,
+  value,
+  onChange,
+  unlocked,
+  onToggleLock,
+  placeholder,
+  multiline = false,
+}: LockableFieldProps) {
+  const empty = !value.trim()
+  const base =
+    "w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+  const editable =
+    "border-slate-200 focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+  const locked = "border-slate-200 bg-slate-50 text-slate-700 cursor-default"
+  const needsInput = "border-amber-300 bg-amber-50/40"
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+          {label}
+        </span>
+        <button
+          type="button"
+          onClick={onToggleLock}
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold text-slate-400 transition hover:bg-slate-100 hover:text-[#1697cf]"
+          aria-label={unlocked ? `Lock ${label}` : `Edit ${label}`}
+          title={unlocked ? "Lock" : "Edit"}
+        >
+          {unlocked ? (
+            <Lock className="size-3.5" aria-hidden="true" />
+          ) : (
+            <Pencil className="size-3.5" aria-hidden="true" />
+          )}
+          {unlocked ? "Lock" : "Edit"}
+        </button>
+      </div>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={!unlocked}
+          rows={2}
+          placeholder={placeholder}
+          className={`${base} resize-none ${
+            unlocked ? editable : empty ? needsInput : locked
+          }`}
+        />
+      ) : (
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={!unlocked}
+          placeholder={placeholder}
+          className={`${base} ${
+            unlocked ? editable : empty ? needsInput : locked
+          }`}
+        />
+      )}
     </div>
   )
 }
