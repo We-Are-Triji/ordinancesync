@@ -1,10 +1,11 @@
 """
-Deploy the OrdinanceSync public chat agent to Vertex AI Agent Engine.
+Deploy the OrdinanceSync PUBLIC CHAT agent to Vertex AI Agent Engine.
 
-Run from inside agent/ after setting the same env vars as deploy.py:
-  GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, STAGING_BUCKET,
-  MDB_MCP_CONNECTION_STRING
+This UPSERTS: the first run creates the engine; every later run updates it in
+place, keeping the SAME engine id. So CHAT_AGENT_ENGINE_ID only needs to be set
+once.
 
+Run from inside agent/:
   python deploy_chat.py
 """
 
@@ -31,32 +32,12 @@ def _load_env(path: Path) -> None:
 # connection string at import time).
 _load_env(Path(__file__).parent / "chat_agent" / ".env")
 
-import vertexai
-from vertexai import agent_engines
-from vertexai.preview import reasoning_engines
-
+from deploy_common import deploy
 from chat_agent.agent import root_agent
 
-PROJECT = os.environ["GOOGLE_CLOUD_PROJECT"]
-LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "asia-southeast1")
-STAGING_BUCKET = os.environ["STAGING_BUCKET"]
-
-vertexai.init(project=PROJECT, location=LOCATION, staging_bucket=STAGING_BUCKET)
-
-app = reasoning_engines.AdkApp(agent=root_agent, enable_tracing=True)
-
-remote_app = agent_engines.create(
-    app,
-    requirements=[
-        "google-cloud-aiplatform[adk,agent_engines]",
-        "mcp",
-    ],
-    display_name="ordinancesync-chat-agent",
-)
-
-print("Deployed CHAT Agent Engine resource name:")
-print(remote_app.resource_name)
-print(
-    "\nSet CHAT_AGENT_ENGINE_ID in your .env.local to the trailing numeric ID "
-    "(the part after 'reasoningEngines/')."
-)
+if __name__ == "__main__":
+    deploy(
+        root_agent,
+        display_name="ordinancesync-chat-agent",
+        env_id_var="CHAT_AGENT_ENGINE_ID",
+    )

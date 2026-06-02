@@ -1,13 +1,17 @@
 """
-Deploy the OrdinanceSync agent to Vertex AI Agent Engine.
+Deploy the OrdinanceSync NOTIFICATION (dispatch) agent to Vertex AI Agent
+Engine.
 
-Prerequisites (see agent/README.md for full setup):
-  - A Google Cloud project with the Vertex AI API enabled
-  - `gcloud auth application-default login` completed
-  - A Cloud Storage bucket for staging
-  - Environment variables set (see below)
+This UPSERTS: the first run creates the engine; every later run updates it in
+place, keeping the SAME engine id. So AGENT_ENGINE_ID only needs to be set once.
 
-Run:
+Prerequisites (see agent/README.md):
+  - Vertex AI API enabled, `gcloud auth application-default login` done
+  - A Cloud Storage staging bucket
+  - env vars: GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, STAGING_BUCKET,
+    MDB_MCP_CONNECTION_STRING  (loaded from ordinancesync_agent/.env below)
+
+Run from inside agent/:
   python deploy.py
 """
 
@@ -34,33 +38,12 @@ def _load_env(path: Path) -> None:
 # connection string at import time).
 _load_env(Path(__file__).parent / "ordinancesync_agent" / ".env")
 
-import vertexai
-from vertexai import agent_engines
-from vertexai.preview import reasoning_engines
-
+from deploy_common import deploy
 from ordinancesync_agent.agent import root_agent
 
-PROJECT = os.environ["GOOGLE_CLOUD_PROJECT"]
-LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "asia-southeast1")
-STAGING_BUCKET = os.environ["STAGING_BUCKET"]  # e.g. gs://my-bucket
-
-vertexai.init(project=PROJECT, location=LOCATION, staging_bucket=STAGING_BUCKET)
-
-# Wrap the ADK agent for Agent Engine.
-app = reasoning_engines.AdkApp(agent=root_agent, enable_tracing=True)
-
-remote_app = agent_engines.create(
-    app,
-    requirements=[
-        "google-cloud-aiplatform[adk,agent_engines]",
-        "mcp",
-    ],
-    display_name="ordinancesync-agent",
-)
-
-print("Deployed Agent Engine resource name:")
-print(remote_app.resource_name)
-print(
-    "\nSet AGENT_ENGINE_ID in your .env.local to the trailing numeric ID of "
-    "the resource name above (the part after 'reasoningEngines/')."
-)
+if __name__ == "__main__":
+    deploy(
+        root_agent,
+        display_name="ordinancesync-agent",
+        env_id_var="AGENT_ENGINE_ID",
+    )
