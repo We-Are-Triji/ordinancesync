@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react"
 import type { Office, OfficeCategory, PaginatedOffices } from "@/lib/types"
+import { getApiErrorMessage } from "@/lib/admin-api"
+import { useToast } from "@/components/ui/toast"
 import AddOfficeModal from "./add-office-modal"
 import EditOfficeModal from "./edit-office-modal"
 import DeleteOfficeDialog from "./delete-office-dialog"
@@ -34,6 +36,7 @@ const categoryStyles: Record<string, string> = {
 }
 
 export default function OfficesTab() {
+  const toast = useToast()
   const [data, setData] = useState<PaginatedOffices | null>(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -68,7 +71,8 @@ export default function OfficesTab() {
         if (cat !== "all") params.set("category", cat)
 
         const res = await fetch(`/api/admin/offices?${params.toString()}`)
-        if (!res.ok) throw new Error("Failed to load offices.")
+        if (!res.ok)
+          throw new Error(await getApiErrorMessage(res, "Failed to load offices."))
         setData(await res.json())
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load.")
@@ -87,8 +91,12 @@ export default function OfficesTab() {
     load(page, search, category)
   }
 
-  function handleCreated() {
+  function handleCreated(office: Office) {
     setShowAdd(false)
+    toast.success({
+      title: "Office added",
+      description: `${office.name} is now in the directory.`,
+    })
     // Reset filters for visual consistency, then explicitly reload page 1.
     // We call load() directly because if these state values are already at
     // their defaults, setState won't change them and the reload effect won't
@@ -100,8 +108,12 @@ export default function OfficesTab() {
     load(1, "", "all")
   }
 
-  function handleDeleted() {
+  function handleDeleted(office: Office) {
     setDeleting(null)
+    toast.success({
+      title: "Office removed",
+      description: `${office.name} will no longer receive notifications.`,
+    })
     if (items.length === 1 && page > 1) {
       setPage((p) => p - 1)
     } else {
@@ -113,6 +125,10 @@ export default function OfficesTab() {
   // without a full reload.
   function handleSaved(updated: Office) {
     setEditing(null)
+    toast.success({
+      title: "Office updated",
+      description: `Saved changes to ${updated.name}.`,
+    })
     setData((prev) =>
       prev
         ? {
@@ -228,7 +244,7 @@ export default function OfficesTab() {
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-400">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-500">
                     {hasFilters
                       ? "No offices match your search or filter."
                       : "No offices yet. Click “Add Office” to start the directory."}
@@ -262,7 +278,7 @@ export default function OfficesTab() {
                           <span className="truncate">{o.email}</span>
                         </span>
                         {o.secondaryEmail && (
-                          <span className="truncate pl-5 text-xs font-medium text-slate-400">
+                          <span className="truncate pl-5 text-xs font-medium text-slate-500">
                             {o.secondaryEmail}
                           </span>
                         )}
@@ -274,12 +290,12 @@ export default function OfficesTab() {
                           {o.contactPerson || "—"}
                         </span>
                         {o.phone && (
-                          <span className="truncate text-xs font-medium text-slate-400">
+                          <span className="truncate text-xs font-medium text-slate-500">
                             {o.phone}
                           </span>
                         )}
                         {o.address && (
-                          <span className="truncate text-xs font-medium text-slate-400">
+                          <span className="truncate text-xs font-medium text-slate-500">
                             {o.address}
                           </span>
                         )}

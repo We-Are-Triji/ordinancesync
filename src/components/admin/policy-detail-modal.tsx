@@ -1,10 +1,14 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
+import { useEffect, useState, useRef } from "react"
 import { Loader2, Send, X } from "lucide-react"
 import type { Dispatch, Ordinance } from "@/lib/types"
 import DispatchModal from "./dispatch-modal"
+import { useFocusTrap } from "@/lib/use-focus-trap"
+
+const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -79,9 +83,12 @@ export default function PolicyDetailModal({
     latestDispatch?.items.filter((i) => i.status === "failed").length ?? 0
   const dispatchedAtIso =
     latestDispatch?.dispatchedAt ?? latestDispatch?.createdAt
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"
