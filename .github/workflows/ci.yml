@@ -1,0 +1,50 @@
+name: CI
+
+# Lightweight checks to catch issues that would break production.
+# Hard gates: type check + build. Lint runs for visibility but never blocks.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Type check & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --- Hard gate: types must be valid (catches real prod-breaking bugs) ---
+      - name: Type check
+        run: npm run typecheck
+
+      # --- Hard gate: the app must build (if it doesn't build, it won't deploy) ---
+      # Dummy env vars so build-time code that reads them doesn't crash. These
+      # are NOT real secrets — the build only needs them to be present/parseable.
+      - name: Build
+        run: npm run build
+        env:
+          MONGODB_URI: "mongodb://localhost:27017/ci"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ci-placeholder"
+          CLERK_SECRET_KEY: "sk_test_ci-placeholder"
+          GOOGLE_CLOUD_PROJECT: "ci-placeholder"
+          GOOGLE_CLOUD_LOCATION: "asia-southeast1"
+
+      # --- Soft check: lint for visibility only, never fails the PR ---
+      - name: Lint (non-blocking)
+        run: npm run lint:src
+        continue-on-error: true
