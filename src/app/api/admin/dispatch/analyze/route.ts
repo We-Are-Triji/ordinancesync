@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
 import { getBucket } from "@/lib/mongodb"
 import { getOrdinance } from "@/lib/ordinances"
+import { getAllOffices } from "@/lib/offices"
 import { analyzeOrdinance, isAgentConfigured } from "@/lib/agent"
 
 export const runtime = "nodejs"
@@ -69,11 +70,24 @@ export async function POST(request: NextRequest) {
       pdfBase64 = loaded
     }
 
+    // Fetch the offices directory ourselves and inject it into the prompt
+    // (instead of relying on the agent's MCP tool call, which Gemini 2.5
+    // intermittently breaks). This makes dispatch reliable.
+    const offices = await getAllOffices()
+
     const { drafts } = await analyzeOrdinance({
       ordinanceNumber: ordinance.ordinanceNumber,
       ordinanceTitle: ordinance.title,
       ordinanceText: ordinanceText || undefined,
       pdfBase64,
+      offices: offices.map((o) => ({
+        _id: o._id,
+        name: o.name,
+        email: o.email,
+        category: o.category,
+        acronym: (o as { acronym?: string }).acronym,
+        description: (o as { description?: string }).description,
+      })),
     })
 
     return NextResponse.json({
