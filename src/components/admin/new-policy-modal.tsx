@@ -527,31 +527,47 @@ export default function NewPolicyModal({
 
           {stage === "done" && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-                <CheckCircle2 className="size-5" aria-hidden="true" />
+              <div
+                className={`flex items-center gap-2 rounded-md px-4 py-3 text-sm font-bold ${
+                  sentCount > 0
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-800"
+                }`}
+              >
+                {sentCount > 0 ? (
+                  <CheckCircle2 className="size-5" aria-hidden="true" />
+                ) : (
+                  <AlertTriangle className="size-5" aria-hidden="true" />
+                )}
                 Dispatched {sentCount} of {results.length} notifications.
               </div>
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
                 {results.map((r, i) => (
                   <li
                     key={`${r.email}-${i}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                    className="flex flex-col gap-1 px-4 py-2.5 text-sm"
                   >
-                    <span className="min-w-0">
-                      <span className="font-bold text-slate-800">{r.officeName}</span>
-                      <span className="ml-2 text-slate-500">{r.email}</span>
-                    </span>
-                    {r.status === "sent" ? (
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                        Sent
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="font-bold text-slate-800">
+                          {r.officeName}
+                        </span>
+                        <span className="ml-2 text-slate-500">{r.email}</span>
                       </span>
-                    ) : (
-                      <span
-                        className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600"
-                        title={r.error}
-                      >
-                        Failed
-                      </span>
+                      {r.status === "sent" ? (
+                        <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                          Sent
+                        </span>
+                      ) : (
+                        <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600">
+                          Failed
+                        </span>
+                      )}
+                    </div>
+                    {r.status === "failed" && r.error && (
+                      <p className="text-xs font-medium leading-snug text-red-600">
+                        {r.error}
+                      </p>
                     )}
                   </li>
                 ))}
