@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Loader2,
   Mail,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react"
 import type { Office, OfficeCategory, PaginatedOffices } from "@/lib/types"
 import AddOfficeModal from "./add-office-modal"
+import EditOfficeModal from "./edit-office-modal"
 import DeleteOfficeDialog from "./delete-office-dialog"
 
 const PAGE_SIZE = 10
@@ -42,6 +44,7 @@ export default function OfficesTab() {
   const [category, setCategory] = useState<CategoryFilter>("all")
 
   const [showAdd, setShowAdd] = useState(false)
+  const [editing, setEditing] = useState<Office | null>(null)
   const [deleting, setDeleting] = useState<Office | null>(null)
 
   useEffect(() => {
@@ -104,6 +107,22 @@ export default function OfficesTab() {
     } else {
       refresh()
     }
+  }
+
+  // Update the edited office in place so the change reflects immediately
+  // without a full reload.
+  function handleSaved(updated: Office) {
+    setEditing(null)
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((o) =>
+              o._id === updated._id ? updated : o
+            ),
+          }
+        : prev
+    )
   }
 
   const items = data?.items ?? []
@@ -276,7 +295,16 @@ export default function OfficesTab() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(o)}
+                          className="rounded-md p-1.5 text-slate-500 transition hover:bg-[#1697cf]/10 hover:text-[#1697cf]"
+                          aria-label={`Edit ${o.name}`}
+                          title="Edit"
+                        >
+                          <Pencil className="size-4" aria-hidden="true" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => setDeleting(o)}
@@ -326,6 +354,13 @@ export default function OfficesTab() {
         <AddOfficeModal
           onClose={() => setShowAdd(false)}
           onCreated={handleCreated}
+        />
+      )}
+      {editing && (
+        <EditOfficeModal
+          office={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
         />
       )}
       {deleting && (
