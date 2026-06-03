@@ -19,6 +19,15 @@ export function isAgentConfigured(): boolean {
   return Boolean(PROJECT && AGENT_ENGINE_ID)
 }
 
+export interface AnalyzeOffice {
+  _id: string
+  name: string
+  email: string
+  category?: string
+  acronym?: string
+  description?: string
+}
+
 export interface AnalyzeInput {
   ordinanceNumber: string
   ordinanceTitle: string
@@ -26,6 +35,11 @@ export interface AnalyzeInput {
   // the PDF only when text isn't available.
   ordinanceText?: string
   pdfBase64?: string
+  // The full offices directory, fetched by the backend and injected into the
+  // prompt. We inject rather than have the agent call MCP because Gemini 2.5
+  // intermittently emits a code-style tool call (print(mongo.find(...))) that
+  // Agent Engine rejects. Injecting the data makes dispatch reliable.
+  offices: AnalyzeOffice[]
 }
 
 export interface AgentDraftResult {
@@ -82,16 +96,39 @@ export async function analyzeOrdinance(
       ? `\n\n=== ORDINANCE TEXT ===\n${input.ordinanceText.slice(0, 12000)}`
       : ""
 
+  // Inject the authoritative offices directory directly into the prompt.
+  const officesBlock =
+    "\n\n=== OFFICES DIRECTORY (the ONLY offices that exist) ===\n" +
+    (input.offices.length === 0
+      ? "There are no offices on file."
+      : input.offices
+          .map((o, i) => {
+            const parts = [
+              `[${i + 1}] officeId: ${o._id}`,
+              `name: ${o.name}`,
+              o.acronym ? `acronym: ${o.acronym}` : "",
+              o.category ? `category: ${o.category}` : "",
+              `email: ${o.email}`,
+              o.description ? `mandate: ${o.description}` : "",
+            ].filter(Boolean)
+            return parts.join(" | ")
+          })
+          .join("\n"))
+
   const message =
-    `Analyze the following Cebu City ordinance "${input.ordinanceNumber} - ` +
-    `${input.ordinanceTitle}". Use the MongoDB find tool to read the "offices" ` +
-    `collection in the ordinance_sync database. Each office may include name, ` +
-    `acronym, category, description/mandate, contactPerson, email, ` +
-    `secondaryEmail, phone, and address. Use the description/mandate and ` +
-    `acronym fields heavily when deciding which offices are affected. For ` +
-    `each affected office, draft a short, localized Cebuano compliance ` +
-    `checklist. Respond ONLY with a JSON array ` +
-    `where each item has: officeId, officeName, email, subject, message.` +
+    `You are analyzing a Cebu City ordinance to decide which local offices it ` +
+    `affects, then drafting a Cebuano (Bisaya) compliance checklist for each.\n\n` +
+    `Use ONLY the offices listed in the OFFICES DIRECTORY below — do NOT call ` +
+    `any tools or write code; everything you need is provided. Decide which ` +
+    `offices are affected based on their name, acronym, category, and mandate. ` +
+    `For each affected office, write a short, clear Cebuano compliance ` +
+    `checklist of concrete actions.\n\n` +
+    `Respond with ONLY a JSON array where each item has exactly: officeId ` +
+    `(copy the exact officeId from the directory), officeName, email, subject ` +
+    `(may be English), message (the Cebuano checklist). If no office is ` +
+    `affected, respond with an empty array [].\n\n` +
+    `Ordinance: "${input.ordinanceNumber} - ${input.ordinanceTitle}"` +
+    officesBlock +
     ordinanceBody
 
   // 1) Create a session.

@@ -6,12 +6,14 @@ import {
   CheckCircle2,
   Loader2,
   Mail,
+  RotateCcw,
   Send,
   Sparkles,
   X,
 } from "lucide-react"
 import type { DispatchDraft, Ordinance } from "@/lib/types"
 import { useFocusTrap } from "@/lib/use-focus-trap"
+import { useToast } from "@/components/ui/toast"
 
 type Stage = "analyzing" | "review" | "sending" | "done"
 
@@ -34,35 +36,41 @@ export default function DispatchModal({
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, { onClose })
 
+  const toast = useToast()
   const [stage, setStage] = useState<Stage>("analyzing")
   const [drafts, setDrafts] = useState<DispatchDraft[]>([])
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<SendResultItem[]>([])
+  const [fromCache, setFromCache] = useState(false)
 
-  const analyze = useCallback(async () => {
-    setStage("analyzing")
-    setError(null)
-    try {
-      const res = await fetch("/api/admin/dispatch/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ordinanceId: ordinance._id }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Analysis failed.")
+  const analyze = useCallback(
+    async (refresh = false) => {
+      setStage("analyzing")
+      setError(null)
+      try {
+        const res = await fetch("/api/admin/dispatch/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ordinanceId: ordinance._id, refresh }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? "Analysis failed.")
 
-      if (!data.drafts || data.drafts.length === 0) {
-        setError("The AI did not identify any affected offices.")
+        setFromCache(Boolean(data.cached))
+        if (!data.drafts || data.drafts.length === 0) {
+          setError("The AI did not identify any affected offices.")
+          setStage("review")
+          return
+        }
+        setDrafts(data.drafts)
         setStage("review")
-        return
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Analysis failed.")
+        setStage("review")
       }
-      setDrafts(data.drafts)
-      setStage("review")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed.")
-      setStage("review")
-    }
-  }, [ordinance._id])
+    },
+    [ordinance._id]
+  )
 
   useEffect(() => {
     analyze()
@@ -94,10 +102,19 @@ export default function DispatchModal({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Dispatch failed.")
-      setResults(data.items ?? [])
+      const items = (data.items ?? []) as SendResultItem[]
+      setResults(items)
       setStage("done")
+      const sent = items.filter((r) => r.status === "sent").length
+      toast.success({
+        title: "Notifications dispatched",
+        description: `${sent} of ${items.length} sent successfully.`,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Dispatch failed.")
+      const message =
+        err instanceof Error ? err.message : "Dispatch failed."
+      setError(message)
+      toast.error({ title: "Dispatch failed", description: message })
       setStage("review")
     }
   }
@@ -158,10 +175,27 @@ export default function DispatchModal({
 
           {stage === "review" && drafts.length > 0 && (
             <div className="space-y-4">
-              <p className="text-sm font-semibold text-slate-600">
-                {drafts.length} office{drafts.length === 1 ? "" : "s"} affected.
-                Review and edit each message before dispatching.
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-600">
+                  {drafts.length} office{drafts.length === 1 ? "" : "s"} affected.
+                  Review and edit each message before dispatching.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => analyze(true)}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 transition hover:border-[#1697cf] hover:text-[#1697cf]"
+                  title="Run a fresh AI analysis"
+                >
+                  <RotateCcw className="size-3.5" aria-hidden="true" />
+                  Re-analyze
+                </button>
+              </div>
+              {fromCache && (
+                <p className="-mt-2 text-xs font-medium text-slate-400">
+                  Reusing the previous analysis (instant). Click Re-analyze to
+                  refresh.
+                </p>
+              )}
               {drafts.map((d, i) => (
                 <div
                   key={`${d.officeId}-${i}`}
@@ -220,33 +254,47 @@ export default function DispatchModal({
 
           {stage === "done" && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-                <CheckCircle2 className="size-5" aria-hidden="true" />
+              <div
+                className={`flex items-center gap-2 rounded-md px-4 py-3 text-sm font-bold ${
+                  sentCount > 0
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-800"
+                }`}
+              >
+                {sentCount > 0 ? (
+                  <CheckCircle2 className="size-5" aria-hidden="true" />
+                ) : (
+                  <AlertTriangle className="size-5" aria-hidden="true" />
+                )}
                 Dispatched {sentCount} of {results.length} notifications.
               </div>
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
                 {results.map((r, i) => (
                   <li
                     key={`${r.email}-${i}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                    className="flex flex-col gap-1 px-4 py-2.5 text-sm"
                   >
-                    <span className="min-w-0">
-                      <span className="font-bold text-slate-800">
-                        {r.officeName}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="font-bold text-slate-800">
+                          {r.officeName}
+                        </span>
+                        <span className="ml-2 text-slate-500">{r.email}</span>
                       </span>
-                      <span className="ml-2 text-slate-500">{r.email}</span>
-                    </span>
-                    {r.status === "sent" ? (
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                        Sent
-                      </span>
-                    ) : (
-                      <span
-                        className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600"
-                        title={r.error}
-                      >
-                        Failed
-                      </span>
+                      {r.status === "sent" ? (
+                        <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                          Sent
+                        </span>
+                      ) : (
+                        <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600">
+                          Failed
+                        </span>
+                      )}
+                    </div>
+                    {r.status === "failed" && r.error && (
+                      <p className="text-xs font-medium leading-snug text-red-600">
+                        {r.error}
+                      </p>
                     )}
                   </li>
                 ))}

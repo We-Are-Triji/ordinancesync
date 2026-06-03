@@ -4,6 +4,8 @@ import { useRef, useState } from "react"
 import { Loader2, X } from "lucide-react"
 import type { Ordinance, OrdinanceStatus } from "@/lib/types"
 import { useFocusTrap } from "@/lib/use-focus-trap"
+import { getApiErrorMessage } from "@/lib/admin-api"
+import { useToast } from "@/components/ui/toast"
 
 const STATUS_OPTIONS: OrdinanceStatus[] = ["active", "pending", "archived"]
 
@@ -21,6 +23,7 @@ export default function EditPolicyModal({
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, { onClose })
 
+  const toast = useToast()
   const [ordinanceNumber, setOrdinanceNumber] = useState(
     ordinance.ordinanceNumber
   )
@@ -52,13 +55,15 @@ export default function EditPolicyModal({
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to update policy.")
+        throw new Error(await getApiErrorMessage(res, "Failed to update policy."))
       }
 
       onSaved((await res.json()) as Ordinance)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update policy.")
+      const message =
+        err instanceof Error ? err.message : "Failed to update policy."
+      setError(message)
+      toast.error({ title: "Couldn't update policy", description: message })
       setSaving(false)
     }
   }

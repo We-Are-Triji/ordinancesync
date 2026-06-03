@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react"
 import type { Ordinance, OrdinanceStatus, PaginatedOrdinances } from "@/lib/types"
+import { getApiErrorMessage } from "@/lib/admin-api"
+import { useToast } from "@/components/ui/toast"
 import NewPolicyModal from "./new-policy-modal"
 import PolicyDetailModal from "./policy-detail-modal"
 import EditPolicyModal from "./edit-policy-modal"
@@ -49,6 +51,7 @@ function formatTimestamp(iso: string) {
 }
 
 export default function ActiveOrdinances() {
+  const toast = useToast()
   const [data, setData] = useState<PaginatedOrdinances | null>(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -86,7 +89,10 @@ export default function ActiveOrdinances() {
         if (statusFilter !== "all") params.set("status", statusFilter)
 
         const res = await fetch(`/api/admin/ordinances?${params.toString()}`)
-        if (!res.ok) throw new Error("Failed to load ordinances.")
+        if (!res.ok)
+          throw new Error(
+            await getApiErrorMessage(res, "Failed to load ordinances.")
+          )
         setData(await res.json())
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load.")
@@ -118,6 +124,10 @@ export default function ActiveOrdinances() {
 
   function handleSaved(updated: Ordinance) {
     setEditing(null)
+    toast.success({
+      title: "Policy updated",
+      description: `Saved changes to ${updated.ordinanceNumber}.`,
+    })
     setData((prev) =>
       prev
         ? {
@@ -130,8 +140,12 @@ export default function ActiveOrdinances() {
     setSelected((prev) => (prev && prev._id === updated._id ? updated : prev))
   }
 
-  function handleDeleted() {
+  function handleDeleted(removed: Ordinance) {
     setDeleting(null)
+    toast.success({
+      title: "Policy deleted",
+      description: `${removed.ordinanceNumber} was removed.`,
+    })
     // If we just removed the last row on a page beyond the first, step back.
     if (items.length === 1 && page > 1) {
       setPage((p) => p - 1)

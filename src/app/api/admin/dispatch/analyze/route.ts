@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createHash } from "node:crypto"
 import { ObjectId } from "mongodb"
 import { getBucket } from "@/lib/mongodb"
-import { getOrdinance } from "@/lib/ordinances"
+import {
+  getOrdinance,
+  getCachedDispatch,
+  setCachedDispatch,
+} from "@/lib/ordinances"
+import { getAllOffices } from "@/lib/offices"
 import { analyzeOrdinance, isAgentConfigured } from "@/lib/agent"
 
 export const runtime = "nodejs"
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { ordinanceId } = await request.json()
+    const { ordinanceId, refresh } = await request.json()
     if (!ordinanceId) {
       return NextResponse.json(
         { error: "ordinanceId is required" },
@@ -53,9 +59,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Ordinance not found" }, { status: 404 })
     }
 
+    const offices = await getAllOffices()
+
+    // Version key = fingerprint of everything the analysis depends on. If the
+    // ordinance text or the offices directory changes, the key changes and we
+    // re-analyze; otherwise we reuse the cached drafts (no repeat AI call).
+    const officesFingerprint = offices
+      .map(
+        (o) =>
+          `${o._id}:${o.name}:${o.email}:${(o as { description?: string }).description ?? ""}`
+      )
+      .join("|")
+    const versionKey = createHash("sha1")
+      .update(`${ordinance.text ?? ""}\u0000${ordinance.title}\u0000${officesFingerprint}`)
+      .digest("hex")
+
+    // Reuse cached analysis unless the caller forces a refresh.
+    if (!refresh) {
+      const cached = await getCachedDispatch(ordinanceId)
+      if (cached && cached.versionKey === versionKey) {
+        return NextResponse.json({
+          ordinanceId: ordinance._id,
+          ordinanceNumber: ordinance.ordinanceNumber,
+          ordinanceTitle: ordinance.title,
+          drafts: cached.drafts,
+          cached: true,
+        })
+      }
+    }
+
     // Prefer pre-extracted text (set at upload). Only load and send the heavy
     // PDF bytes when text isn't available — avoids reprocessing large files.
-    let ordinanceText = ordinance.text ?? ""
+    const ordinanceText = ordinance.text ?? ""
     let pdfBase64: string | undefined
 
     if (!ordinanceText.trim()) {
@@ -69,18 +104,32 @@ export async function POST(request: NextRequest) {
       pdfBase64 = loaded
     }
 
+    // Inject the offices directory into the prompt (instead of relying on the
+    // agent's MCP tool call, which Gemini 2.5 intermittently breaks).
     const { drafts } = await analyzeOrdinance({
       ordinanceNumber: ordinance.ordinanceNumber,
       ordinanceTitle: ordinance.title,
       ordinanceText: ordinanceText || undefined,
       pdfBase64,
+      offices: offices.map((o) => ({
+        _id: o._id,
+        name: o.name,
+        email: o.email,
+        category: o.category,
+        acronym: (o as { acronym?: string }).acronym,
+        description: (o as { description?: string }).description,
+      })),
     })
+
+    // Cache the result for instant re-dispatch.
+    await setCachedDispatch(ordinanceId, drafts, versionKey)
 
     return NextResponse.json({
       ordinanceId: ordinance._id,
       ordinanceNumber: ordinance.ordinanceNumber,
       ordinanceTitle: ordinance.title,
       drafts,
+      cached: false,
     })
   } catch (err) {
     console.error("Analyze failed:", err)

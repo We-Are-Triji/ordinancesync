@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import type { DispatchDraft, Ordinance } from "@/lib/types"
 import { useFocusTrap } from "@/lib/use-focus-trap"
+import { useToast } from "@/components/ui/toast"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -62,6 +63,7 @@ export default function NewPolicyModal({
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, { onClose })
 
+  const toast = useToast()
   const [stage, setStage] = useState<Stage>("select")
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -206,8 +208,15 @@ export default function NewPolicyModal({
       setCreated(createdOrdinance)
       // Let the table refresh right away — the ordinance now exists.
       onCreated(createdOrdinance)
+      toast.success({
+        title: "Policy created",
+        description: `${createdOrdinance.ordinanceNumber} was added.`,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save ordinance.")
+      const message =
+        err instanceof Error ? err.message : "Failed to save ordinance."
+      setError(message)
+      toast.error({ title: "Couldn't save ordinance", description: message })
       setStage("review")
       return
     }
@@ -267,10 +276,19 @@ export default function NewPolicyModal({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Dispatch failed.")
-      setResults(data.items ?? [])
+      const items = (data.items ?? []) as SendResultItem[]
+      setResults(items)
       setStage("done")
+      const sent = items.filter((r) => r.status === "sent").length
+      toast.success({
+        title: "Notifications dispatched",
+        description: `${sent} of ${items.length} sent successfully.`,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Dispatch failed.")
+      const message =
+        err instanceof Error ? err.message : "Dispatch failed."
+      setError(message)
+      toast.error({ title: "Dispatch failed", description: message })
       setStage("dispatch")
     }
   }
@@ -532,31 +550,47 @@ export default function NewPolicyModal({
 
           {stage === "done" && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-                <CheckCircle2 className="size-5" aria-hidden="true" />
+              <div
+                className={`flex items-center gap-2 rounded-md px-4 py-3 text-sm font-bold ${
+                  sentCount > 0
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-800"
+                }`}
+              >
+                {sentCount > 0 ? (
+                  <CheckCircle2 className="size-5" aria-hidden="true" />
+                ) : (
+                  <AlertTriangle className="size-5" aria-hidden="true" />
+                )}
                 Dispatched {sentCount} of {results.length} notifications.
               </div>
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
                 {results.map((r, i) => (
                   <li
                     key={`${r.email}-${i}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                    className="flex flex-col gap-1 px-4 py-2.5 text-sm"
                   >
-                    <span className="min-w-0">
-                      <span className="font-bold text-slate-800">{r.officeName}</span>
-                      <span className="ml-2 text-slate-500">{r.email}</span>
-                    </span>
-                    {r.status === "sent" ? (
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                        Sent
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="font-bold text-slate-800">
+                          {r.officeName}
+                        </span>
+                        <span className="ml-2 text-slate-500">{r.email}</span>
                       </span>
-                    ) : (
-                      <span
-                        className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600"
-                        title={r.error}
-                      >
-                        Failed
-                      </span>
+                      {r.status === "sent" ? (
+                        <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                          Sent
+                        </span>
+                      ) : (
+                        <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600">
+                          Failed
+                        </span>
+                      )}
+                    </div>
+                    {r.status === "failed" && r.error && (
+                      <p className="text-xs font-medium leading-snug text-red-600">
+                        {r.error}
+                      </p>
                     )}
                   </li>
                 ))}

@@ -5,6 +5,8 @@ import { Loader2, X } from "lucide-react"
 import type { Office, OfficeCategory } from "@/lib/types"
 import { isValidEmail } from "@/lib/utils"
 import { useFocusTrap } from "@/lib/use-focus-trap"
+import { getApiErrorMessage } from "@/lib/admin-api"
+import { useToast } from "@/components/ui/toast"
 
 const CATEGORY_OPTIONS: { value: OfficeCategory; label: string }[] = [
   { value: "office", label: "Office" },
@@ -25,6 +27,7 @@ export default function EditOfficeModal({
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, { onClose })
 
+  const toast = useToast()
   const [name, setName] = useState(office.name)
   const [email, setEmail] = useState(office.email)
   const [category, setCategory] = useState<OfficeCategory>(office.category)
@@ -56,13 +59,15 @@ export default function EditOfficeModal({
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to update office.")
+        throw new Error(await getApiErrorMessage(res, "Failed to update office."))
       }
 
       onSaved((await res.json()) as Office)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update office.")
+      const message =
+        err instanceof Error ? err.message : "Failed to update office."
+      setError(message)
+      toast.error({ title: "Couldn't update office", description: message })
       setSaving(false)
     }
   }
