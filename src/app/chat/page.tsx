@@ -1,10 +1,15 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ArrowUp, Landmark, Loader2, Sparkles } from "lucide-react"
+import { ArrowUp, Landmark, Loader2, Mic, Sparkles } from "lucide-react"
+
+const VoiceModal = dynamic(() => import("@/components/chat/voice-modal"), {
+  ssr: false,
+})
 
 interface Message {
   role: "user" | "assistant"
@@ -34,9 +39,27 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [voiceOpen, setVoiceOpen] = useState(false)
+  const [voiceSupported, setVoiceSupported] = useState(false)
 
   const started = messages.length > 0
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Voice needs mic capture + MediaRecorder, available in modern browsers over
+  // HTTPS/localhost. Detect once on mount so we only show the mic when usable.
+  useEffect(() => {
+    setVoiceSupported(
+      typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices?.getUserMedia &&
+        typeof window !== "undefined" &&
+        "MediaRecorder" in window
+    )
+  }, [])
+
+  function handleVoiceTranscript(text: string) {
+    setVoiceOpen(false)
+    if (text.trim()) send(text)
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -135,6 +158,17 @@ export default function ChatPage() {
                   className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
                   aria-label="Your question"
                 />
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    onClick={() => setVoiceOpen(true)}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#1697cf] transition hover:bg-[#1697cf]/10"
+                    aria-label="Ask with voice"
+                    title="Ask with voice"
+                  >
+                    <Mic className="size-4" aria-hidden="true" />
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={!input.trim()}
@@ -222,6 +256,18 @@ export default function ChatPage() {
                   className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
                   aria-label="Your question"
                 />
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    onClick={() => setVoiceOpen(true)}
+                    disabled={loading}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#1697cf] transition hover:bg-[#1697cf]/10 disabled:opacity-40"
+                    aria-label="Ask with voice"
+                    title="Ask with voice"
+                  >
+                    <Mic className="size-4" aria-hidden="true" />
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={!input.trim() || loading}
@@ -237,6 +283,13 @@ export default function ChatPage() {
             </form>
           </div>
         </>
+      )}
+
+      {voiceOpen && (
+        <VoiceModal
+          onClose={() => setVoiceOpen(false)}
+          onTranscript={handleVoiceTranscript}
+        />
       )}
     </div>
   )
