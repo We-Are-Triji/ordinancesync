@@ -3,11 +3,13 @@
 import { useState } from "react"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import type { Office } from "@/lib/types"
+import { getApiErrorMessage } from "@/lib/admin-api"
+import { useToast } from "@/components/ui/toast"
 
 interface DeleteOfficeDialogProps {
   office: Office
   onClose: () => void
-  onDeleted: (id: string) => void
+  onDeleted: (office: Office) => void
 }
 
 export default function DeleteOfficeDialog({
@@ -15,6 +17,7 @@ export default function DeleteOfficeDialog({
   onClose,
   onDeleted,
 }: DeleteOfficeDialogProps) {
+  const toast = useToast()
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,12 +30,14 @@ export default function DeleteOfficeDialog({
         method: "DELETE",
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to delete office.")
+        throw new Error(await getApiErrorMessage(res, "Failed to delete office."))
       }
-      onDeleted(office._id)
+      onDeleted(office)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete office.")
+      const message =
+        err instanceof Error ? err.message : "Failed to delete office."
+      setError(message)
+      toast.error({ title: "Couldn't remove office", description: message })
       setDeleting(false)
     }
   }

@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react"
 import type { DispatchDraft, Ordinance } from "@/lib/types"
+import { useToast } from "@/components/ui/toast"
 
 type Stage = "analyzing" | "review" | "sending" | "done"
 
@@ -31,6 +32,7 @@ export default function DispatchModal({
   ordinance,
   onClose,
 }: DispatchModalProps) {
+  const toast = useToast()
   const [stage, setStage] = useState<Stage>("analyzing")
   const [drafts, setDrafts] = useState<DispatchDraft[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -96,10 +98,19 @@ export default function DispatchModal({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Dispatch failed.")
-      setResults(data.items ?? [])
+      const items = (data.items ?? []) as SendResultItem[]
+      setResults(items)
       setStage("done")
+      const sent = items.filter((r) => r.status === "sent").length
+      toast.success({
+        title: "Notifications dispatched",
+        description: `${sent} of ${items.length} sent successfully.`,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Dispatch failed.")
+      const message =
+        err instanceof Error ? err.message : "Dispatch failed."
+      setError(message)
+      toast.error({ title: "Dispatch failed", description: message })
       setStage("review")
     }
   }
