@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { transcribeAudio, isSpeechConfigured } from "@/lib/speech"
+import {
+  transcribeAudio,
+  isSpeechConfigured,
+  isValidSttLanguage,
+  DEFAULT_STT_LANGUAGE,
+} from "@/lib/speech"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -17,7 +22,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { audio } = await request.json()
+    const { audio, language } = await request.json()
 
     if (!audio || typeof audio !== "string") {
       return NextResponse.json(
@@ -25,6 +30,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const languageCode =
+      typeof language === "string" && isValidSttLanguage(language)
+        ? language
+        : DEFAULT_STT_LANGUAGE
 
     // base64 expands ~4/3; estimate decoded size from string length.
     const approxBytes = Math.floor((audio.length * 3) / 4)
@@ -35,16 +45,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { transcript, languageCode } = await transcribeAudio(audio)
+    const { transcript } = await transcribeAudio(audio, languageCode)
 
     if (!transcript) {
       return NextResponse.json(
-        { error: "We couldn't hear anything. Please try again." },
+        { error: "We couldn't make out any words. Please try again." },
         { status: 422 }
       )
     }
 
-    return NextResponse.json({ transcript, languageCode })
+    return NextResponse.json({ transcript, language: languageCode })
   } catch (err) {
     console.error("Transcribe failed:", err)
     return NextResponse.json(

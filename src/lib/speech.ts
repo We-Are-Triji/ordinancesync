@@ -1,21 +1,37 @@
 import { getGoogleAccessToken } from "./google-auth"
 
 /**
- * Google Cloud Speech-to-Text v2 (Chirp 3) transcription.
+ * Google Cloud Speech-to-Text v2 (Chirp) transcription.
  *
- * Uses language-agnostic transcription (`languageCodes: ["auto"]`) so the
- * speaker can talk in English, Filipino, or Bisaya/Cebuano and the model
- * auto-detects. Auto detection requires the `us` (or global/eu) region, so
- * this endpoint runs in `us` — independent of where the rest of the app runs.
+ * Uses the `chirp` model in asia-southeast1 with an EXPLICIT language code.
+ * We deliberately do NOT use language auto-detection: for this Cebu-City app,
+ * restricting to the chosen language (Bisaya by default) is far more accurate
+ * for Cebuano spelling and prevents the model from hallucinating an unrelated
+ * language (e.g. Spanish) when given near-silent/noisy audio.
  */
 
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT
-// Auto language detection is only available in us/eu/global regions.
-const STT_REGION = process.env.STT_REGION ?? "us"
-const MODEL = "chirp_3"
+// chirp + ceb-PH are available in asia-southeast1 (NOT in us).
+const STT_REGION = process.env.STT_REGION ?? "asia-southeast1"
+const MODEL = "chirp"
+
+// Languages offered in the UI. Bisaya is the default.
+export const SUPPORTED_STT_LANGUAGES = {
+  "ceb-PH": "Bisaya",
+  "en-US": "English",
+  "fil-PH": "Filipino",
+} as const
+
+export type SttLanguage = keyof typeof SUPPORTED_STT_LANGUAGES
+
+export const DEFAULT_STT_LANGUAGE: SttLanguage = "ceb-PH"
 
 export function isSpeechConfigured(): boolean {
   return Boolean(PROJECT)
+}
+
+export function isValidSttLanguage(code: string): code is SttLanguage {
+  return code in SUPPORTED_STT_LANGUAGES
 }
 
 export interface TranscriptionResult {
@@ -23,13 +39,9 @@ export interface TranscriptionResult {
   languageCode: string
 }
 
-/**
- * Transcribes a base64-encoded audio clip. `AutoDetectDecodingConfig` lets the
- * API figure out the container/encoding (WEBM/OPUS, MP4/AAC, etc.) so we don't
- * have to normalize what MediaRecorder produced.
- */
 export async function transcribeAudio(
-  audioBase64: string
+  audioBase64: string,
+  languageCode: SttLanguage = DEFAULT_STT_LANGUAGE
 ): Promise<TranscriptionResult> {
   if (!isSpeechConfigured()) {
     throw new Error("Speech-to-Text not configured. Set GOOGLE_CLOUD_PROJECT.")
@@ -49,7 +61,7 @@ export async function transcribeAudio(
     body: JSON.stringify({
       config: {
         autoDecodingConfig: {},
-        languageCodes: ["auto"],
+        languageCodes: [languageCode],
         model: MODEL,
       },
       content: audioBase64,
@@ -73,9 +85,6 @@ export async function transcribeAudio(
     .map((r) => r.alternatives?.[0]?.transcript ?? "")
     .join(" ")
     .trim()
-
-  const languageCode =
-    results.find((r) => r.languageCode)?.languageCode ?? "auto"
 
   return { transcript, languageCode }
 }
