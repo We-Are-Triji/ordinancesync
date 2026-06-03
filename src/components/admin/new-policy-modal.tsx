@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react"
 import type { DispatchDraft, Ordinance } from "@/lib/types"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 import { useToast } from "@/components/ui/toast"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
@@ -59,6 +60,9 @@ export default function NewPolicyModal({
   onClose,
   onCreated,
 }: NewPolicyModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
+
   const toast = useToast()
   const [stage, setStage] = useState<Stage>("select")
   const [progress, setProgress] = useState(0)
@@ -306,6 +310,7 @@ export default function NewPolicyModal({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"
@@ -361,7 +366,7 @@ export default function NewPolicyModal({
               <p className="text-sm font-bold text-slate-700">
                 Drag & drop a PDF here, or click to browse
               </p>
-              <p className="text-xs font-semibold text-slate-400">
+              <p className="text-xs font-semibold text-slate-500">
                 PDF only, up to 25 MB. We&apos;ll read the ordinance number and
                 title automatically.
               </p>
@@ -457,7 +462,7 @@ export default function NewPolicyModal({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                 <FileText className="size-3.5" aria-hidden="true" />
                 {uploaded?.fileName}
               </div>
@@ -471,7 +476,7 @@ export default function NewPolicyModal({
                 <p className="text-sm font-bold text-slate-700">
                   Saving ordinance and analyzing affected offices...
                 </p>
-                <p className="mt-1 text-xs font-semibold text-slate-400">
+                <p className="mt-1 text-xs font-semibold text-slate-500">
                   Gemini is matching offices from the directory and drafting
                   Cebuano checklists.
                 </p>
@@ -505,7 +510,7 @@ export default function NewPolicyModal({
                         <button
                           type="button"
                           onClick={() => removeDraft(i)}
-                          className="shrink-0 rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                          className="shrink-0 rounded-md px-2 py-1 text-xs font-bold text-slate-500 transition hover:bg-red-50 hover:text-red-600"
                         >
                           Remove
                         </button>
@@ -527,7 +532,7 @@ export default function NewPolicyModal({
                   ))}
                 </>
               ) : (
-                <div className="py-8 text-center text-sm font-semibold text-slate-400">
+                <div className="py-8 text-center text-sm font-semibold text-slate-500">
                   No notifications to dispatch. The ordinance has been saved.
                 </div>
               )}

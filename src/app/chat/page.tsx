@@ -277,7 +277,7 @@ export default function ChatPage() {
                   <ArrowUp className="size-4" aria-hidden="true" />
                 </button>
               </div>
-              <p className="mt-2 text-center text-xs font-medium text-slate-400">
+              <p className="mt-2 text-center text-xs font-medium text-slate-500">
                 Answers come only from official Cebu City ordinances on file.
               </p>
             </form>

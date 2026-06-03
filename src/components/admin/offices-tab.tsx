@@ -244,7 +244,7 @@ export default function OfficesTab() {
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-400">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-500">
                     {hasFilters
                       ? "No offices match your search or filter."
                       : "No offices yet. Click “Add Office” to start the directory."}
@@ -278,7 +278,7 @@ export default function OfficesTab() {
                           <span className="truncate">{o.email}</span>
                         </span>
                         {o.secondaryEmail && (
-                          <span className="truncate pl-5 text-xs font-medium text-slate-400">
+                          <span className="truncate pl-5 text-xs font-medium text-slate-500">
                             {o.secondaryEmail}
                           </span>
                         )}
@@ -290,12 +290,12 @@ export default function OfficesTab() {
                           {o.contactPerson || "—"}
                         </span>
                         {o.phone && (
-                          <span className="truncate text-xs font-medium text-slate-400">
+                          <span className="truncate text-xs font-medium text-slate-500">
                             {o.phone}
                           </span>
                         )}
                         {o.address && (
-                          <span className="truncate text-xs font-medium text-slate-400">
+                          <span className="truncate text-xs font-medium text-slate-500">
                             {o.address}
                           </span>
                         )}

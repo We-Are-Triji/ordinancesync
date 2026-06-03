@@ -144,7 +144,7 @@ export default function SettingsTab() {
 
           <div className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Signed in as
               </p>
               <p className="mt-1 break-all text-sm font-bold text-slate-700">
