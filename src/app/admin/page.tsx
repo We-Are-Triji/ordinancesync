@@ -159,7 +159,11 @@ export default function AdminLoginPage() {
               {submitting && (
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               )}
-              {submitting ? "Signing in..." : "Login"}
+              {!isLoaded
+                ? "Loading authentication..."
+                : submitting
+                  ? "Signing in..."
+                  : "Login"}
             </button>
           </form>
         </div>

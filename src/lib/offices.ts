@@ -14,6 +14,12 @@ function serialize(doc: WithId<Document>): Office {
     name: doc.name ?? "",
     email: doc.email ?? "",
     category: (doc.category as OfficeCategory) ?? "office",
+    acronym: doc.acronym ?? "",
+    description: doc.description ?? "",
+    contactPerson: doc.contactPerson ?? "",
+    secondaryEmail: doc.secondaryEmail ?? "",
+    phone: doc.phone ?? "",
+    address: doc.address ?? "",
     createdAt:
       doc.createdAt instanceof Date
         ? doc.createdAt.toISOString()
@@ -52,7 +58,16 @@ export async function listOffices(
   const term = search.trim()
   if (term) {
     const regex = { $regex: escapeRegex(term), $options: "i" }
-    query.$or = [{ name: regex }, { email: regex }]
+    query.$or = [
+      { name: regex },
+      { email: regex },
+      { acronym: regex },
+      { description: regex },
+      { contactPerson: regex },
+      { secondaryEmail: regex },
+      { phone: regex },
+      { address: regex },
+    ]
   }
 
   const total = await collection.countDocuments(query)
@@ -100,6 +115,12 @@ export interface CreateOfficeInput {
   name: string
   email: string
   category?: OfficeCategory
+  acronym?: string
+  description?: string
+  contactPerson?: string
+  secondaryEmail?: string
+  phone?: string
+  address?: string
 }
 
 export async function createOffice(input: CreateOfficeInput): Promise<Office> {
@@ -109,6 +130,12 @@ export async function createOffice(input: CreateOfficeInput): Promise<Office> {
     name: input.name.trim(),
     email: input.email.trim().toLowerCase(),
     category: input.category ?? "office",
+    acronym: input.acronym?.trim() ?? "",
+    description: input.description?.trim() ?? "",
+    contactPerson: input.contactPerson?.trim() ?? "",
+    secondaryEmail: input.secondaryEmail?.trim().toLowerCase() ?? "",
+    phone: input.phone?.trim() ?? "",
+    address: input.address?.trim() ?? "",
     createdAt: now,
     updatedAt: now,
   }
@@ -120,6 +147,12 @@ export interface UpdateOfficeInput {
   name?: string
   email?: string
   category?: OfficeCategory
+  acronym?: string
+  description?: string
+  contactPerson?: string
+  secondaryEmail?: string
+  phone?: string
+  address?: string
 }
 
 export async function updateOffice(
@@ -133,6 +166,14 @@ export async function updateOffice(
   if (input.name !== undefined) update.name = input.name.trim()
   if (input.email !== undefined) update.email = input.email.trim().toLowerCase()
   if (input.category !== undefined) update.category = input.category
+  if (input.acronym !== undefined) update.acronym = input.acronym.trim()
+  if (input.description !== undefined) update.description = input.description.trim()
+  if (input.contactPerson !== undefined) update.contactPerson = input.contactPerson.trim()
+  if (input.secondaryEmail !== undefined) {
+    update.secondaryEmail = input.secondaryEmail.trim().toLowerCase()
+  }
+  if (input.phone !== undefined) update.phone = input.phone.trim()
+  if (input.address !== undefined) update.address = input.address.trim()
 
   const result = await db
     .collection(COLLECTION)
