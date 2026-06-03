@@ -169,12 +169,6 @@ export default function LandingPage() {
             {navItems.map(renderNavLink)}
           </nav>
 
-          <Link
-            href="/admin"
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-[#1697cf] px-3 text-xs font-bold text-white shadow-sm transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf] sm:px-5 sm:text-sm"
-          >
-            LGU Portal
-          </Link>
         </div>
 
         <nav
@@ -194,7 +188,7 @@ export default function LandingPage() {
         <div className="mx-auto grid min-h-[520px] max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:py-20">
           <div className="relative z-10 max-w-2xl">
             <h1 className="max-w-xl text-4xl font-black leading-[1.12] text-slate-950 sm:text-5xl">
-              Experienced{" "}
+              Experience{" "}
               <span className="text-[#1697cf]">digital ordinance</span>{" "}
               platform for Cebu City governance.
             </h1>
@@ -361,9 +355,6 @@ export default function LandingPage() {
           <div className="flex gap-5">
             <Link className="hover:text-[#1697cf]" href="/chat">
               Policy Chat
-            </Link>
-            <Link className="hover:text-[#1697cf]" href="/admin">
-              LGU Portal
             </Link>
           </div>
         </div>
