@@ -192,7 +192,6 @@ export default function NewPolicyModal({
           fileName: uploaded.fileName,
           fileSize: uploaded.fileSize,
           text: uploaded.text ?? "",
-          status: "active",
         }),
       })
       if (!res.ok) {

@@ -84,6 +84,11 @@ export async function getAllOffices(): Promise<Office[]> {
   return docs.map(serialize)
 }
 
+export async function getOfficeCount(): Promise<number> {
+  const db = await getDb()
+  return db.collection(COLLECTION).countDocuments({})
+}
+
 export async function getOffice(id: string): Promise<Office | null> {
   if (!ObjectId.isValid(id)) return null
   const db = await getDb()

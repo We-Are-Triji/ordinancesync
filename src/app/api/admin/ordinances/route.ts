@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { listOrdinances, createOrdinance } from "@/lib/ordinances"
+import { getAdminSettings } from "@/lib/settings"
 import type { OrdinanceStatus } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -38,10 +39,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (
+      status !== undefined &&
+      !["active", "pending", "archived"].includes(status)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid ordinance status" },
+        { status: 400 }
+      )
+    }
+
+    const settings = status === undefined ? await getAdminSettings() : null
+
     const ordinance = await createOrdinance({
       ordinanceNumber,
       title,
-      status: (status as OrdinanceStatus) ?? "active",
+      status:
+        (status as OrdinanceStatus | undefined) ??
+        settings?.defaultOrdinanceStatus,
       pageCount: Number(pageCount) || 0,
       fileId,
       fileName: fileName ?? "document.pdf",
