@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     // Cache standalone (non-follow-up) answers for reuse — but never cache
     // fallback/non-answers, so a transient miss doesn't get pinned.
     if (cacheable && !isFallback) {
-      storeAnswer(trimmed, cachedEmbedding, cleanAnswer, datasetVersion)
+      await storeAnswer(trimmed, cachedEmbedding, cleanAnswer, datasetVersion)
     }
 
     return NextResponse.json({ answer: cleanAnswer, sessionId: activeSession })
