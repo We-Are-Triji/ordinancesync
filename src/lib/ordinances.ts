@@ -1,6 +1,6 @@
 import { ObjectId, type WithId, type Document, type Filter } from "mongodb"
 import { getDb, getBucket } from "./mongodb"
-import type { Ordinance, OrdinanceStatus, PaginatedOrdinances } from "./types"
+import type { Ordinance, OrdinanceStatus, PaginatedOrdinances, DispatchDraft } from "./types"
 
 const COLLECTION = "ordinances"
 
@@ -254,4 +254,58 @@ export async function getDatasetVersion(): Promise<string> {
       ? latest[0].updatedAt.getTime()
       : String(latest[0]?.updatedAt ?? "0")
   return `${count}:${stamp}`
+}
+
+export interface CachedDispatchAnalysis {
+  drafts: DispatchDraft[]
+  // Fingerprint of the inputs the analysis depended on. If the current inputs
+  // produce a different key, the cache is stale and we re-analyze.
+  versionKey: string
+  analyzedAt: string
+}
+
+/**
+ * Reads the cached dispatch analysis stored on an ordinance, if any.
+ */
+export async function getCachedDispatch(
+  id: string
+): Promise<CachedDispatchAnalysis | null> {
+  if (!ObjectId.isValid(id)) return null
+  const db = await getDb()
+  const doc = await db
+    .collection(COLLECTION)
+    .findOne(
+      { _id: new ObjectId(id) },
+      { projection: { dispatchAnalysis: 1 } }
+    )
+  const cached = doc?.dispatchAnalysis
+  if (!cached || !Array.isArray(cached.drafts) || !cached.versionKey) return null
+  return {
+    drafts: cached.drafts as DispatchDraft[],
+    versionKey: cached.versionKey,
+    analyzedAt:
+      cached.analyzedAt instanceof Date
+        ? cached.analyzedAt.toISOString()
+        : (cached.analyzedAt ?? new Date().toISOString()),
+  }
+}
+
+/**
+ * Stores the dispatch analysis result on the ordinance for reuse.
+ */
+export async function setCachedDispatch(
+  id: string,
+  drafts: DispatchDraft[],
+  versionKey: string
+): Promise<void> {
+  if (!ObjectId.isValid(id)) return
+  const db = await getDb()
+  await db.collection(COLLECTION).updateOne(
+    { _id: new ObjectId(id) },
+    {
+      $set: {
+        dispatchAnalysis: { drafts, versionKey, analyzedAt: new Date() },
+      },
+    }
+  )
 }

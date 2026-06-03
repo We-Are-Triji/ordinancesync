@@ -175,7 +175,7 @@ export default function OfficesTab() {
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by name or email"
+            placeholder="Search name, acronym, mandate, contact, or email"
             className="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm outline-none transition focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
             aria-label="Search offices"
           />
@@ -215,11 +215,13 @@ export default function OfficesTab() {
 
       <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Office</th>
+                <th className="px-4 py-3">Mandate</th>
                 <th className="px-4 py-3">Notification Email</th>
+                <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -227,7 +229,7 @@ export default function OfficesTab() {
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                       Loading directory...
@@ -236,13 +238,13 @@ export default function OfficesTab() {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-sm font-semibold text-red-600">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-red-600">
                     {error}
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-sm font-semibold text-slate-400">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-400">
                     {hasFilters
                       ? "No offices match your search or filter."
                       : "No offices yet. Click “Add Office” to start the directory."}
@@ -251,17 +253,53 @@ export default function OfficesTab() {
               ) : (
                 items.map((o) => (
                   <tr key={o._id} className="transition hover:bg-[#eaf8ff]">
-                    <td className="px-4 py-3 font-bold text-slate-800">
-                      <span className="inline-flex items-center gap-2">
-                        <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
-                        {o.name}
-                      </span>
+                    <td className="px-4 py-3">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="inline-flex items-center gap-2 font-bold text-slate-800">
+                          <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+                          <span className="truncate">{o.name}</span>
+                        </span>
+                        {o.acronym && (
+                          <span className="w-fit rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-black uppercase text-slate-500">
+                            {o.acronym}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="max-w-[320px] px-4 py-3">
+                      <p className="line-clamp-2 text-sm font-medium leading-5 text-slate-600">
+                        {o.description || "No mandate recorded."}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      <span className="inline-flex items-center gap-2">
-                        <Mail className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
-                        {o.email}
-                      </span>
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="inline-flex items-center gap-2">
+                          <Mail className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                          <span className="truncate">{o.email}</span>
+                        </span>
+                        {o.secondaryEmail && (
+                          <span className="truncate pl-5 text-xs font-medium text-slate-400">
+                            {o.secondaryEmail}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="truncate font-semibold text-slate-700">
+                          {o.contactPerson || "—"}
+                        </span>
+                        {o.phone && (
+                          <span className="truncate text-xs font-medium text-slate-400">
+                            {o.phone}
+                          </span>
+                        )}
+                        {o.address && (
+                          <span className="truncate text-xs font-medium text-slate-400">
+                            {o.address}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span

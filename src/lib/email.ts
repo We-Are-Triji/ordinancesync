@@ -3,8 +3,9 @@ import { Resend } from "resend"
 // Resend's shared sandbox sender works without a verified domain. In test mode
 // it only delivers to the email that owns the Resend account, which is fine for
 // the prototype demo. Override with RESEND_FROM_EMAIL once a domain is verified.
+// Note: use a truthy check, not ??, so an empty env var still falls back.
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL ?? "OrdinanceSync <onboarding@resend.dev>"
+  process.env.RESEND_FROM_EMAIL?.trim() || "OrdinanceSync <onboarding@resend.dev>"
 
 let client: Resend | null = null
 

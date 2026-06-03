@@ -25,6 +25,12 @@ export default function AddOfficeModal({
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [category, setCategory] = useState<OfficeCategory>("office")
+  const [acronym, setAcronym] = useState("")
+  const [description, setDescription] = useState("")
+  const [contactPerson, setContactPerson] = useState("")
+  const [secondaryEmail, setSecondaryEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [address, setAddress] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,6 +43,13 @@ export default function AddOfficeModal({
       setError("Enter a valid email address.")
       return
     }
+    if (
+      secondaryEmail.trim() &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(secondaryEmail.trim())
+    ) {
+      setError("Enter a valid secondary email address.")
+      return
+    }
 
     setSaving(true)
     setError(null)
@@ -45,7 +58,17 @@ export default function AddOfficeModal({
       const res = await fetch("/api/admin/offices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, category }),
+        body: JSON.stringify({
+          name,
+          email,
+          category,
+          acronym,
+          description,
+          contactPerson,
+          secondaryEmail,
+          phone,
+          address,
+        }),
       })
 
       if (!res.ok) {
@@ -69,7 +92,7 @@ export default function AddOfficeModal({
       aria-modal="true"
       aria-label="Add new office"
     >
-      <div className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl">
+      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-lg font-black text-slate-900">New Office</h2>
           <button
@@ -82,30 +105,51 @@ export default function AddOfficeModal({
           </button>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {error && (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
               {error}
             </div>
           )}
 
-          <div className="grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Office Name
+                <span className="ml-1 text-red-500" aria-hidden="true">
+                  *
+                </span>
               </span>
               <input
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. CCENRO"
                 className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
               />
             </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Acronym / Code
+              </span>
+              <input
+                value={acronym}
+                onChange={(e) => setAcronym(e.target.value)}
+                placeholder="e.g. CCENRO"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+              />
+            </label>
+
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Notification Email
+                <span className="ml-1 text-red-500" aria-hidden="true">
+                  *
+                </span>
               </span>
               <input
+                required
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -113,6 +157,20 @@ export default function AddOfficeModal({
                 className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
               />
             </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Secondary Email
+              </span>
+              <input
+                type="email"
+                value={secondaryEmail}
+                onChange={(e) => setSecondaryEmail(e.target.value)}
+                placeholder="alternate@cebucity.gov.ph"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+              />
+            </label>
+
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Category
@@ -128,6 +186,55 @@ export default function AddOfficeModal({
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Contact Person
+              </span>
+              <input
+                value={contactPerson}
+                onChange={(e) => setContactPerson(e.target.value)}
+                placeholder="Name of office contact"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Phone Number
+              </span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Local or mobile number"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Location / Address
+              </span>
+              <input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Office address"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 sm:col-span-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Description / Mandate
+              </span>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Responsibilities, covered services, jurisdictions, or topics this office handles"
+                className="resize-y rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
+              />
             </label>
           </div>
         </div>
