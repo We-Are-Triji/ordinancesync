@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react"
 import type { DispatchDraft, Ordinance } from "@/lib/types"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 
 type Stage = "analyzing" | "review" | "sending" | "done"
 
@@ -30,6 +31,9 @@ export default function DispatchModal({
   ordinance,
   onClose,
 }: DispatchModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
+
   const [stage, setStage] = useState<Stage>("analyzing")
   const [drafts, setDrafts] = useState<DispatchDraft[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -102,6 +106,7 @@ export default function DispatchModal({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"
@@ -136,7 +141,7 @@ export default function DispatchModal({
                 <p className="text-sm font-bold text-slate-700">
                   Gemini is analyzing the ordinance...
                 </p>
-                <p className="mt-1 text-xs font-semibold text-slate-400">
+                <p className="mt-1 text-xs font-semibold text-slate-500">
                   Matching affected offices from the directory and drafting
                   Cebuano checklists.
                 </p>
@@ -175,7 +180,7 @@ export default function DispatchModal({
                     <button
                       type="button"
                       onClick={() => removeDraft(i)}
-                      className="shrink-0 rounded-md px-2 py-1 text-xs font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                      className="shrink-0 rounded-md px-2 py-1 text-xs font-bold text-slate-500 transition hover:bg-red-50 hover:text-red-600"
                     >
                       Remove
                     </button>
@@ -199,7 +204,7 @@ export default function DispatchModal({
           )}
 
           {stage === "review" && drafts.length === 0 && !error && (
-            <div className="py-12 text-center text-sm font-semibold text-slate-400">
+            <div className="py-12 text-center text-sm font-semibold text-slate-500">
               No affected offices to notify.
             </div>
           )}

@@ -253,7 +253,7 @@ export default function ActiveOrdinances() {
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-4 py-12 text-center font-sans text-sm font-semibold text-slate-400"
+                    className="px-4 py-12 text-center font-sans text-sm font-semibold text-slate-500"
                   >
                     {hasFilters
                       ? "No ordinances match your search or filter."
@@ -265,7 +265,19 @@ export default function ActiveOrdinances() {
                   <tr
                     key={o._id}
                     onClick={() => setSelected(o)}
-                    className="cursor-pointer transition hover:bg-[#eaf8ff]"
+                    onKeyDown={(e) => {
+                      // Make the row keyboard-operable. Enter activates;
+                      // Space matches button semantics (preventDefault stops
+                      // the page from scrolling).
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        setSelected(o)
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View details for ${o.ordinanceNumber}: ${o.title}`}
+                    className="cursor-pointer transition hover:bg-[#eaf8ff] focus:outline-none focus-visible:bg-[#eaf8ff] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1697cf]"
                   >
                     <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                       {formatTimestamp(o.createdAt)}

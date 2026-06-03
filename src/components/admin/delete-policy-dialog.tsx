@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import type { Ordinance } from "@/lib/types"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 
 interface DeletePolicyDialogProps {
   ordinance: Ordinance
@@ -15,6 +16,9 @@ export default function DeletePolicyDialog({
   onClose,
   onDeleted,
 }: DeletePolicyDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
+
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,6 +43,7 @@ export default function DeletePolicyDialog({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"

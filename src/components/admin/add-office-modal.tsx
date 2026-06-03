@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Loader2, X } from "lucide-react"
 import type { Office, OfficeCategory } from "@/lib/types"
 import { isValidEmail } from "@/lib/utils"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 
 const CATEGORY_OPTIONS: { value: OfficeCategory; label: string }[] = [
   { value: "office", label: "Office" },
@@ -19,6 +20,9 @@ export default function AddOfficeModal({
   onClose,
   onCreated,
 }: AddOfficeModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
+
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [category, setCategory] = useState<OfficeCategory>("office")
@@ -82,6 +86,7 @@ export default function AddOfficeModal({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"

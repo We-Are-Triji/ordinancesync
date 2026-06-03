@@ -1,8 +1,10 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { useRef } from "react"
 import { X } from "lucide-react"
 import type { Ordinance } from "@/lib/types"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -30,9 +32,12 @@ export default function PolicyDetailModal({
   onClose,
 }: PolicyDetailModalProps) {
   const fileUrl = `/api/admin/ordinances/file/${ordinance.fileId}`
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"
