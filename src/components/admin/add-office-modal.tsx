@@ -110,8 +110,12 @@ export default function AddOfficeModal({
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Office Name
+                <span className="ml-1 text-red-500" aria-hidden="true">
+                  *
+                </span>
               </span>
               <input
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. CCENRO"
@@ -134,8 +138,12 @@ export default function AddOfficeModal({
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
                 Notification Email
+                <span className="ml-1 text-red-500" aria-hidden="true">
+                  *
+                </span>
               </span>
               <input
+                required
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
