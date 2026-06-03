@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from "lucide-react"
 import type { DefaultOrdinanceStatus } from "@/lib/settings"
+import { useToast } from "@/components/ui/toast"
 
 type DirectoryStats = {
   totalOrdinances: number
@@ -50,6 +51,7 @@ export default function SettingsTab() {
   const router = useRouter()
   const { signOut } = useClerk()
   const { user, isLoaded: userLoaded } = useUser()
+  const toast = useToast()
 
   const [defaultStatus, setDefaultStatus] =
     useState<DefaultOrdinanceStatus>("active")
@@ -110,8 +112,11 @@ export default function SettingsTab() {
       setDefaultStatus(data.settings.defaultOrdinanceStatus)
       setStats(data.stats)
       setSaved(true)
+      toast.success({ title: "Settings saved" })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save.")
+      const message = err instanceof Error ? err.message : "Failed to save."
+      setError(message)
+      toast.error({ title: "Couldn't save settings", description: message })
     } finally {
       setSaving(false)
     }

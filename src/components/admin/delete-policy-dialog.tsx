@@ -3,11 +3,13 @@
 import { useState } from "react"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import type { Ordinance } from "@/lib/types"
+import { getApiErrorMessage } from "@/lib/admin-api"
+import { useToast } from "@/components/ui/toast"
 
 interface DeletePolicyDialogProps {
   ordinance: Ordinance
   onClose: () => void
-  onDeleted: (id: string) => void
+  onDeleted: (ordinance: Ordinance) => void
 }
 
 export default function DeletePolicyDialog({
@@ -15,6 +17,7 @@ export default function DeletePolicyDialog({
   onClose,
   onDeleted,
 }: DeletePolicyDialogProps) {
+  const toast = useToast()
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,12 +30,14 @@ export default function DeletePolicyDialog({
         method: "DELETE",
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to delete policy.")
+        throw new Error(await getApiErrorMessage(res, "Failed to delete policy."))
       }
-      onDeleted(ordinance._id)
+      onDeleted(ordinance)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete policy.")
+      const message =
+        err instanceof Error ? err.message : "Failed to delete policy."
+      setError(message)
+      toast.error({ title: "Couldn't delete policy", description: message })
       setDeleting(false)
     }
   }

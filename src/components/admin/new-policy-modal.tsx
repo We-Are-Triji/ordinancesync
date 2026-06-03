@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react"
 import type { DispatchDraft, Ordinance } from "@/lib/types"
+import { useToast } from "@/components/ui/toast"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -58,6 +59,7 @@ export default function NewPolicyModal({
   onClose,
   onCreated,
 }: NewPolicyModalProps) {
+  const toast = useToast()
   const [stage, setStage] = useState<Stage>("select")
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -202,8 +204,15 @@ export default function NewPolicyModal({
       setCreated(createdOrdinance)
       // Let the table refresh right away — the ordinance now exists.
       onCreated(createdOrdinance)
+      toast.success({
+        title: "Policy created",
+        description: `${createdOrdinance.ordinanceNumber} was added.`,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save ordinance.")
+      const message =
+        err instanceof Error ? err.message : "Failed to save ordinance."
+      setError(message)
+      toast.error({ title: "Couldn't save ordinance", description: message })
       setStage("review")
       return
     }
@@ -263,10 +272,19 @@ export default function NewPolicyModal({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Dispatch failed.")
-      setResults(data.items ?? [])
+      const items = (data.items ?? []) as SendResultItem[]
+      setResults(items)
       setStage("done")
+      const sent = items.filter((r) => r.status === "sent").length
+      toast.success({
+        title: "Notifications dispatched",
+        description: `${sent} of ${items.length} sent successfully.`,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Dispatch failed.")
+      const message =
+        err instanceof Error ? err.message : "Dispatch failed."
+      setError(message)
+      toast.error({ title: "Dispatch failed", description: message })
       setStage("dispatch")
     }
   }
