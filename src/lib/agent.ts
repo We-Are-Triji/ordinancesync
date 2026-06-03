@@ -85,9 +85,12 @@ export async function analyzeOrdinance(
   const message =
     `Analyze the following Cebu City ordinance "${input.ordinanceNumber} - ` +
     `${input.ordinanceTitle}". Use the MongoDB find tool to read the "offices" ` +
-    `collection in the ordinance_sync database. Determine which offices are ` +
-    `affected by this ordinance. For each affected office, draft a short, ` +
-    `localized Cebuano compliance checklist. Respond ONLY with a JSON array ` +
+    `collection in the ordinance_sync database. Each office may include name, ` +
+    `acronym, category, description/mandate, contactPerson, email, ` +
+    `secondaryEmail, phone, and address. Use the description/mandate and ` +
+    `acronym fields heavily when deciding which offices are affected. For ` +
+    `each affected office, draft a short, localized Cebuano compliance ` +
+    `checklist. Respond ONLY with a JSON array ` +
     `where each item has: officeId, officeName, email, subject, message.` +
     ordinanceBody
 

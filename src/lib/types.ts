@@ -30,6 +30,12 @@ export interface Office {
   name: string
   email: string
   category: OfficeCategory
+  acronym?: string
+  description?: string
+  contactPerson?: string
+  secondaryEmail?: string
+  phone?: string
+  address?: string
   createdAt: string
   updatedAt: string
 }

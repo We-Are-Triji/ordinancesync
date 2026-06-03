@@ -32,14 +32,16 @@ to open any file.
 
 Use the MongoDB `find` tool to read the "offices" collection in the
 "ordinance_sync" database. Each office document has: _id, name, email,
-category.
+category, acronym, description, contactPerson, secondaryEmail, phone, and
+address.
 
 Steps:
 1. Read the ordinance text provided in the message.
 2. Call the MongoDB `find` tool to list all offices in the directory.
 3. Decide which offices are genuinely affected by this ordinance based on
-   their name and mandate (e.g. CCENRO for environmental matters, CCTO for
-   traffic/transport, PROBE, and relevant Barangay Captains).
+   their name, acronym, category, and especially their description/mandate
+   (e.g. CCENRO for environmental matters, CCTO for traffic/transport, PROBE,
+   and relevant Barangay Captains).
 4. For each affected office, draft a short, clear compliance checklist written
    in Cebuano (Bisaya), listing the concrete actions that office must take.
 
