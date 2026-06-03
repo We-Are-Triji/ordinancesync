@@ -90,6 +90,11 @@ export async function getOrdinance(id: string): Promise<Ordinance | null> {
   return doc ? serialize(doc) : null
 }
 
+export async function getOrdinanceCount(): Promise<number> {
+  const db = await getDb()
+  return db.collection(COLLECTION).countDocuments({})
+}
+
 export interface CreateOrdinanceInput {
   ordinanceNumber: string
   title: string
