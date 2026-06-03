@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Loader2, X } from "lucide-react"
 import type { Office, OfficeCategory } from "@/lib/types"
+import { isValidEmail } from "@/lib/utils"
 
 const CATEGORY_OPTIONS: { value: OfficeCategory; label: string }[] = [
   { value: "office", label: "Office" },
@@ -29,7 +30,7 @@ export default function AddOfficeModal({
       setError("Office name is required.")
       return
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!isValidEmail(email)) {
       setError("Enter a valid email address.")
       return
     }
