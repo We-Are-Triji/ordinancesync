@@ -251,7 +251,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <h2 className="text-base font-black text-slate-800">{title}</h2>
-                <p className="mt-1 text-xs font-semibold text-slate-400">{text}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{text}</p>
               </div>
             </article>
           ))}
@@ -265,7 +265,7 @@ export default function LandingPage() {
             <h2 className="text-3xl font-black leading-tight text-slate-900 sm:text-4xl">
               Local policy access should feel simple, fast, and trustworthy.
             </h2>
-            <p className="mt-5 text-sm font-semibold leading-7 text-slate-400">
+            <p className="mt-5 text-sm font-semibold leading-7 text-slate-500">
               Built for citizens, clerks, and city officials, OrdinanceSync
               turns scattered records into a searchable, easier-to-manage civic
               knowledge base.
@@ -285,7 +285,7 @@ export default function LandingPage() {
                       <h3 className="text-lg font-black text-slate-900">
                         {point}
                       </h3>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
                         {index === 0
                           ? "Give residents a direct path to official local policy records."
                           : index === 1
@@ -306,7 +306,7 @@ export default function LandingPage() {
                       <p className="text-sm font-black text-slate-900">
                         Ordinance Finder
                       </p>
-                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
                         Cebu City public records
                       </p>
                     </div>

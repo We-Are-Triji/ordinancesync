@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertTriangle, Check, Loader2, Mic, RotateCcw, X } from "lucide-react"
+import { useFocusTrap } from "@/lib/use-focus-trap"
 
 const LANGUAGES: { code: SttLang; label: string }[] = [
   { code: "ceb-PH", label: "Bisaya" },
@@ -28,6 +29,9 @@ const MIN_RECORDING_MS = 600
 const SILENCE_THRESHOLD = 0.045
 
 export default function VoiceModal({ onClose, onTranscript }: VoiceModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
+
   const [phase, setPhase] = useState<Phase>("requesting")
   const [error, setError] = useState<string | null>(null)
   const [heardSpeech, setHeardSpeech] = useState(false)
@@ -263,6 +267,7 @@ export default function VoiceModal({ onClose, onTranscript }: VoiceModalProps) {
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
       role="dialog"
       aria-modal="true"
@@ -324,7 +329,7 @@ export default function VoiceModal({ onClose, onTranscript }: VoiceModalProps) {
               <p className="text-sm font-bold text-slate-700">
                 {heardSpeech ? "Listening..." : "Start speaking"}
               </p>
-              <p className="text-center text-xs font-semibold text-slate-400">
+              <p className="text-center text-xs font-semibold text-slate-500">
                 Speaking in{" "}
                 <span className="text-[#1697cf]">
                   {LANGUAGES.find((l) => l.code === language)?.label}
@@ -362,7 +367,7 @@ export default function VoiceModal({ onClose, onTranscript }: VoiceModalProps) {
                   className="w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#1697cf] focus:ring-2 focus:ring-[#1697cf]/20"
                   aria-label="Transcribed text (editable)"
                 />
-                <p className="mt-1 text-xs font-medium text-slate-400">
+                <p className="mt-1 text-xs font-medium text-slate-500">
                   Review and edit if needed, then send.
                 </p>
               </div>

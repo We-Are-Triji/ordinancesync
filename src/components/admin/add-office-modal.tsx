@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Loader2, X } from "lucide-react"
 import type { Office, OfficeCategory } from "@/lib/types"
 import { isValidEmail } from "@/lib/utils"
+import { useFocusTrap } from "@/lib/use-focus-trap"
+import { getApiErrorMessage } from "@/lib/admin-api"
+import { useToast } from "@/components/ui/toast"
 
 const CATEGORY_OPTIONS: { value: OfficeCategory; label: string }[] = [
   { value: "office", label: "Office" },
@@ -19,6 +22,10 @@ export default function AddOfficeModal({
   onClose,
   onCreated,
 }: AddOfficeModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, { onClose })
+
+  const toast = useToast()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [category, setCategory] = useState<OfficeCategory>("office")
@@ -69,19 +76,22 @@ export default function AddOfficeModal({
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? "Failed to add office.")
+        throw new Error(await getApiErrorMessage(res, "Failed to add office."))
       }
 
       onCreated((await res.json()) as Office)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add office.")
+      const message =
+        err instanceof Error ? err.message : "Failed to add office."
+      setError(message)
+      toast.error({ title: "Couldn't add office", description: message })
       setSaving(false)
     }
   }
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"
