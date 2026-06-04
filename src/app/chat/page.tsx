@@ -33,6 +33,15 @@ function getUserId(): string {
   return id
 }
 
+function formatRetryAfter(seconds: unknown): string | null {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
+    return null
+  }
+  if (seconds < 60) return `${Math.ceil(seconds)} seconds`
+  const minutes = Math.ceil(seconds / 60)
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -48,12 +57,14 @@ export default function ChatPage() {
   // Voice needs mic capture + MediaRecorder, available in modern browsers over
   // HTTPS/localhost. Detect once on mount so we only show the mic when usable.
   useEffect(() => {
-    setVoiceSupported(
-      typeof navigator !== "undefined" &&
-        !!navigator.mediaDevices?.getUserMedia &&
-        typeof window !== "undefined" &&
-        "MediaRecorder" in window
-    )
+    const timeout = window.setTimeout(() => {
+      setVoiceSupported(
+        typeof navigator !== "undefined" &&
+          !!navigator.mediaDevices?.getUserMedia &&
+          "MediaRecorder" in window
+      )
+    }, 0)
+    return () => window.clearTimeout(timeout)
   }, [])
 
   function handleVoiceTranscript(text: string) {
@@ -89,7 +100,14 @@ export default function ChatPage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Something went wrong.")
+      if (!res.ok) {
+        const message = data.error ?? "Something went wrong."
+        const retryAfter =
+          res.status === 429 ? formatRetryAfter(data.retryAfter) : null
+        throw new Error(
+          retryAfter ? `${message} Try again in ${retryAfter}.` : message
+        )
+      }
 
       if (data.sessionId && !sessionId) setSessionId(data.sessionId)
       setMessages((prev) => [

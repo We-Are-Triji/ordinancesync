@@ -12,6 +12,7 @@ import {
   getDatasetVersion,
 } from "@/lib/ordinances"
 import { findCachedAnswer, storeAnswer } from "@/lib/semantic-cache"
+import { checkChatRateLimit, getClientIp } from "@/lib/chat-rate-limit"
 
 export const runtime = "nodejs"
 // AI calls (embedding + Agent Engine query) can take well over 10s. Allow up
@@ -19,6 +20,12 @@ export const runtime = "nodejs"
 export const maxDuration = 60
 
 const MAX_MESSAGE_LENGTH = 1000
+
+function rateLimitMessage(window: "minute" | "day"): string {
+  return window === "day"
+    ? "You've reached today's chat limit. Please try again later."
+    : "Too many questions in a short time. Please wait a moment before asking again."
+}
 
 function buildGroundingContext(
   ordinances: Awaited<ReturnType<typeof getOrdinanceContext>>
@@ -65,6 +72,24 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const rateLimit = await checkChatRateLimit(getClientIp(request))
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: rateLimitMessage(rateLimit.window),
+          retryAfter: rateLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": String(rateLimit.remaining),
+          },
+        }
+      )
+    }
+
     const { message, sessionId, userId, history } = await request.json()
 
     if (!message || typeof message !== "string" || !message.trim()) {
