@@ -81,6 +81,8 @@ export default async function OpengraphImage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div
             style={{
+              display: "flex",
+              flexDirection: "column",
               fontSize: 72,
               fontWeight: 800,
               lineHeight: 1.05,
@@ -88,8 +90,7 @@ export default async function OpengraphImage() {
               maxWidth: 940,
             }}
           >
-            Cebu City ordinances,
-            <br />
+            <span>Cebu City ordinances,</span>
             <span style={{ color: BRAND }}>made searchable.</span>
           </div>
           <div
