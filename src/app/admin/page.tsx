@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Landmark, LockKeyhole, Loader2 } from "lucide-react"
+import { LockKeyhole, Loader2 } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
 import { useSignIn } from "@clerk/nextjs/legacy"
+import { Logo } from "@/components/ui/logo"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -71,8 +72,8 @@ export default function AdminLoginPage() {
             className="mx-auto inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
             aria-label="OrdinanceSync home"
           >
-            <span className="flex size-12 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
-              <Landmark className="size-6" aria-hidden="true" />
+            <span className="flex size-12 items-center justify-center">
+              <Logo size={48} priority className="size-full" />
             </span>
             <span className="text-left">
               <span className="block text-xl font-semibold tracking-tight">

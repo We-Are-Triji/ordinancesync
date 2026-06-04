@@ -14,8 +14,11 @@ import {
   Settings,
   X,
 } from "lucide-react"
+
 import { useClerk, useUser } from "@clerk/nextjs"
+
 import { ToastProvider } from "@/components/ui/toast"
+import { Logo } from "@/components/ui/logo"
 import { useFocusTrap } from "@/lib/use-focus-trap"
 import ActiveOrdinances from "./active-ordinances"
 import OfficesTab from "./offices-tab"
