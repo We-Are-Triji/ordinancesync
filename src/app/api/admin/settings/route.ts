@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getOfficeCount } from "@/lib/offices"
 import { getOrdinanceCount } from "@/lib/ordinances"
+import { getLatestDispatch } from "@/lib/dispatches"
 import {
   getAdminSettings,
   isDefaultOrdinanceStatus,
@@ -10,13 +11,35 @@ import {
 
 export const runtime = "nodejs"
 
+/**
+ * Returns workspace settings + a small "directory stats" payload that the
+ * settings page renders alongside them. Both are cheap so we resolve them
+ * together to keep the page a single round-trip.
+ */
 async function getDirectoryStats() {
-  const [totalOrdinances, totalOffices] = await Promise.all([
+  const [totalOrdinances, totalOffices, latestDispatch] = await Promise.all([
     getOrdinanceCount(),
     getOfficeCount(),
+    getLatestDispatch(),
   ])
 
-  return { totalOrdinances, totalOffices }
+  // Trim the dispatch payload to only what the settings card needs, both for
+  // bandwidth and to keep the API surface narrow if the schema grows.
+  const summary = latestDispatch
+    ? {
+        ordinanceNumber: latestDispatch.ordinanceNumber,
+        ordinanceTitle: latestDispatch.ordinanceTitle,
+        sent: latestDispatch.items.filter((i) => i.status === "sent").length,
+        failed: latestDispatch.items.filter((i) => i.status === "failed").length,
+        dispatchedAt: latestDispatch.dispatchedAt ?? latestDispatch.createdAt,
+      }
+    : null
+
+  return {
+    totalOrdinances,
+    totalOffices,
+    lastDispatch: summary,
+  }
 }
 
 export async function GET() {
@@ -39,7 +62,11 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { defaultOrdinanceStatus, defaultTablePageSize } = body
+    const {
+      defaultOrdinanceStatus,
+      defaultTablePageSize,
+      autoDispatchOnUpload,
+    } = body
 
     if (
       defaultOrdinanceStatus !== undefined &&
@@ -61,8 +88,22 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    if (
+      autoDispatchOnUpload !== undefined &&
+      typeof autoDispatchOnUpload !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "autoDispatchOnUpload must be a boolean" },
+        { status: 400 }
+      )
+    }
+
     const [settings, stats] = await Promise.all([
-      saveAdminSettings({ defaultOrdinanceStatus, defaultTablePageSize }),
+      saveAdminSettings({
+        defaultOrdinanceStatus,
+        defaultTablePageSize,
+        autoDispatchOnUpload,
+      }),
       getDirectoryStats(),
     ])
 
