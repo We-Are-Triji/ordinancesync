@@ -74,3 +74,19 @@ export async function getLatestDispatchForOrdinance(
     .next()
   return doc ? serialize(doc) : null
 }
+
+/**
+ * Most recent dispatch across all ordinances, or null if none have been
+ * dispatched yet. Used by the admin settings page to summarize directory
+ * activity ("Last dispatched ORD-12 · 4 sent · 1 failed").
+ */
+export async function getLatestDispatch(): Promise<Dispatch | null> {
+  const db = await getDb()
+  const doc = await db
+    .collection(COLLECTION)
+    .find({})
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .next()
+  return doc ? serialize(doc) : null
+}

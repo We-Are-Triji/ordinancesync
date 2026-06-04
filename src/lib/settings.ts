@@ -10,8 +10,18 @@ export type DefaultOrdinanceStatus = Extract<
 >
 
 export interface AdminSettings {
+  /** Status applied to ordinances created from the New Policy modal. */
   defaultOrdinanceStatus: DefaultOrdinanceStatus
+  /** Page size used by the admin tables (Active Ordinances, Offices). */
   defaultTablePageSize: number
+  /**
+   * When true, finishing the New Policy upload immediately runs the AI
+   * dispatch analyzer and rolls into the review-and-approve stage. When
+   * false, the upload completes and the admin can dispatch manually later
+   * from the row action or detail view. Defaults to true to preserve the
+   * current behaviour for existing installs.
+   */
+  autoDispatchOnUpload: boolean
   updatedAt: string
 }
 
@@ -19,6 +29,7 @@ interface AdminSettingsDocument {
   _id: string
   defaultOrdinanceStatus?: DefaultOrdinanceStatus
   defaultTablePageSize?: number
+  autoDispatchOnUpload?: boolean
   createdAt?: Date
   updatedAt?: Date
 }
@@ -26,11 +37,13 @@ interface AdminSettingsDocument {
 export interface UpdateAdminSettingsInput {
   defaultOrdinanceStatus?: DefaultOrdinanceStatus
   defaultTablePageSize?: number
+  autoDispatchOnUpload?: boolean
 }
 
 const DEFAULT_SETTINGS: AdminSettings = {
   defaultOrdinanceStatus: "active",
   defaultTablePageSize: 10,
+  autoDispatchOnUpload: true,
   updatedAt: new Date(0).toISOString(),
 }
 
@@ -40,6 +53,7 @@ const VALID_PAGE_SIZES = [10, 25, 50, 100]
 function serialize(doc?: AdminSettingsDocument | null): AdminSettings {
   const status = doc?.defaultOrdinanceStatus
   const pageSize = doc?.defaultTablePageSize
+  const autoDispatch = doc?.autoDispatchOnUpload
 
   return {
     defaultOrdinanceStatus: isDefaultOrdinanceStatus(status)
@@ -48,6 +62,10 @@ function serialize(doc?: AdminSettingsDocument | null): AdminSettings {
     defaultTablePageSize: isDefaultTablePageSize(pageSize)
       ? pageSize
       : DEFAULT_SETTINGS.defaultTablePageSize,
+    autoDispatchOnUpload:
+      typeof autoDispatch === "boolean"
+        ? autoDispatch
+        : DEFAULT_SETTINGS.autoDispatchOnUpload,
     updatedAt:
       doc?.updatedAt instanceof Date
         ? doc.updatedAt.toISOString()
@@ -88,6 +106,9 @@ export async function saveAdminSettings(
   }
   if (input.defaultTablePageSize !== undefined) {
     update.defaultTablePageSize = input.defaultTablePageSize
+  }
+  if (input.autoDispatchOnUpload !== undefined) {
+    update.autoDispatchOnUpload = input.autoDispatchOnUpload
   }
 
   const result = await db

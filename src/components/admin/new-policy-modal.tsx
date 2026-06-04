@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   AlertTriangle,
@@ -72,6 +72,30 @@ export default function NewPolicyModal({
   const [uploaded, setUploaded] = useState<UploadResult | null>(null)
   const [pageCount, setPageCount] = useState(0)
   const [dragActive, setDragActive] = useState(false)
+
+  // Workspace setting that lets the admin opt out of automatic dispatch.
+  // Defaults to true so an unconfigured workspace keeps the legacy behaviour;
+  // we read it once when the modal opens. Stored in a ref so the async chain
+  // below picks up the latest value without the callbacks needing to be
+  // memoized against it.
+  const autoDispatchRef = useRef<boolean>(true)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/admin/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        if (typeof data.settings?.autoDispatchOnUpload === "boolean") {
+          autoDispatchRef.current = data.settings.autoDispatchOnUpload
+        }
+      })
+      .catch(() => {
+        // Best-effort load; fall back to the default (auto-dispatch ON).
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [ordinanceNumber, setOrdinanceNumber] = useState("")
   const [title, setTitle] = useState("")
@@ -221,7 +245,19 @@ export default function NewPolicyModal({
       return
     }
 
-    // Run AI dispatch analysis automatically.
+    // Run AI dispatch analysis automatically — unless the workspace setting
+    // says otherwise. Skipping here drops the user at the "no drafts" view
+    // of the dispatch stage, which already explains the ordinance is saved
+    // and lets them close the modal.
+    if (!autoDispatchRef.current) {
+      setDrafts([])
+      setNotice(
+        "Auto-dispatch is turned off. The ordinance is saved — re-dispatch later from the row action when you're ready."
+      )
+      setStage("dispatch")
+      return
+    }
+
     try {
       const res = await fetch("/api/admin/dispatch/analyze", {
         method: "POST",
