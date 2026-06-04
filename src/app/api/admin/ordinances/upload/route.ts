@@ -13,6 +13,20 @@ export const runtime = "nodejs"
 export const maxDuration = 60
 
 const MAX_BYTES = 25 * 1024 * 1024 // 25 MB
+const PDF_MAGIC = Buffer.from("%PDF-")
+const MAX_PAGES = 300
+const MAX_EXTRACTED_TEXT_CHARS = 250_000
+
+function hasPdfExtension(fileName: string): boolean {
+  return /\.pdf$/i.test(fileName.trim())
+}
+
+function hasPdfMagicNumber(buffer: Buffer): boolean {
+  return (
+    buffer.length >= PDF_MAGIC.length &&
+    buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)
+  )
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +44,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!hasPdfExtension(file.name)) {
+      return NextResponse.json(
+        { error: "Only files with a .pdf extension are accepted" },
+        { status: 415 }
+      )
+    }
+
     if (file.size > MAX_BYTES) {
       return NextResponse.json(
         { error: "File exceeds the 25 MB limit" },
@@ -38,15 +59,12 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const bucket = await getBucket()
-
-    const uploadStream = bucket.openUploadStream(file.name, {
-      metadata: { contentType: "application/pdf" },
-    })
-
-    await new Promise<void>((resolve, reject) => {
-      Readable.from(buffer).pipe(uploadStream).on("error", reject).on("finish", resolve)
-    })
+    if (!hasPdfMagicNumber(buffer)) {
+      return NextResponse.json(
+        { error: "The uploaded file is not a valid PDF document" },
+        { status: 415 }
+      )
+    }
 
     // Extract text so the chat agent can search/quote actual ordinance content.
     // Failure here shouldn't block the upload — store empty text and continue.
@@ -54,7 +72,13 @@ export async function POST(request: NextRequest) {
     let extractedPages = 0
     try {
       const extracted = await extractPdfText(buffer)
-      text = extracted.text
+      if (extracted.pageCount > MAX_PAGES) {
+        return NextResponse.json(
+          { error: `PDF exceeds the ${MAX_PAGES}-page limit` },
+          { status: 413 }
+        )
+      }
+      text = extracted.text.slice(0, MAX_EXTRACTED_TEXT_CHARS)
       extractedPages = extracted.pageCount
     } catch (err) {
       console.error("PDF text extraction failed (continuing):", err)
@@ -84,6 +108,15 @@ export async function POST(request: NextRequest) {
         metadataStatus = "failed"
       }
     }
+
+    const bucket = await getBucket()
+    const uploadStream = bucket.openUploadStream(file.name, {
+      metadata: { contentType: "application/pdf" },
+    })
+
+    await new Promise<void>((resolve, reject) => {
+      Readable.from(buffer).pipe(uploadStream).on("error", reject).on("finish", resolve)
+    })
 
     return NextResponse.json({
       fileId: uploadStream.id.toString(),
