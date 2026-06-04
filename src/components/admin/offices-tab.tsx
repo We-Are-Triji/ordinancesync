@@ -5,7 +5,6 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
-  Loader2,
   Mail,
   Pencil,
   Plus,
@@ -14,11 +13,10 @@ import {
   X,
 } from "lucide-react"
 import type { Office, OfficeCategory, PaginatedOffices } from "@/lib/types"
-import { getApiErrorMessage } from "@/lib/admin-api"
-import { useToast } from "@/components/ui/toast"
 import AddOfficeModal from "./add-office-modal"
 import EditOfficeModal from "./edit-office-modal"
 import DeleteOfficeDialog from "./delete-office-dialog"
+import { TableSkeletonRows } from "./table-skeleton-rows"
 
 const PAGE_SIZE = 10
 
@@ -36,7 +34,6 @@ const categoryStyles: Record<string, string> = {
 }
 
 export default function OfficesTab() {
-  const toast = useToast()
   const [data, setData] = useState<PaginatedOffices | null>(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -71,8 +68,7 @@ export default function OfficesTab() {
         if (cat !== "all") params.set("category", cat)
 
         const res = await fetch(`/api/admin/offices?${params.toString()}`)
-        if (!res.ok)
-          throw new Error(await getApiErrorMessage(res, "Failed to load offices."))
+        if (!res.ok) throw new Error("Failed to load offices.")
         setData(await res.json())
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load.")
@@ -91,12 +87,8 @@ export default function OfficesTab() {
     load(page, search, category)
   }
 
-  function handleCreated(office: Office) {
+  function handleCreated() {
     setShowAdd(false)
-    toast.success({
-      title: "Office added",
-      description: `${office.name} is now in the directory.`,
-    })
     // Reset filters for visual consistency, then explicitly reload page 1.
     // We call load() directly because if these state values are already at
     // their defaults, setState won't change them and the reload effect won't
@@ -108,12 +100,8 @@ export default function OfficesTab() {
     load(1, "", "all")
   }
 
-  function handleDeleted(office: Office) {
+  function handleDeleted() {
     setDeleting(null)
-    toast.success({
-      title: "Office removed",
-      description: `${office.name} will no longer receive notifications.`,
-    })
     if (items.length === 1 && page > 1) {
       setPage((p) => p - 1)
     } else {
@@ -125,10 +113,6 @@ export default function OfficesTab() {
   // without a full reload.
   function handleSaved(updated: Office) {
     setEditing(null)
-    toast.success({
-      title: "Office updated",
-      description: `Saved changes to ${updated.name}.`,
-    })
     setData((prev) =>
       prev
         ? {
@@ -228,14 +212,17 @@ export default function OfficesTab() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                      Loading directory...
-                    </span>
-                  </td>
-                </tr>
+                <TableSkeletonRows
+                  rows={PAGE_SIZE}
+                  columns={[
+                    { width: "w-40" }, // Office (name + acronym pill)
+                    { width: "w-64" }, // Mandate / description
+                    { width: "w-48" }, // Notification email
+                    { width: "w-32" }, // Contact (person + phone/address)
+                    { width: "w-16", asChip: true }, // Category chip
+                    { width: "w-14", align: "right" }, // Actions
+                  ]}
+                />
               ) : error ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-red-600">
@@ -244,7 +231,7 @@ export default function OfficesTab() {
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-500">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-400">
                     {hasFilters
                       ? "No offices match your search or filter."
                       : "No offices yet. Click “Add Office” to start the directory."}
@@ -278,7 +265,7 @@ export default function OfficesTab() {
                           <span className="truncate">{o.email}</span>
                         </span>
                         {o.secondaryEmail && (
-                          <span className="truncate pl-5 text-xs font-medium text-slate-500">
+                          <span className="truncate pl-5 text-xs font-medium text-slate-400">
                             {o.secondaryEmail}
                           </span>
                         )}
@@ -290,12 +277,12 @@ export default function OfficesTab() {
                           {o.contactPerson || "—"}
                         </span>
                         {o.phone && (
-                          <span className="truncate text-xs font-medium text-slate-500">
+                          <span className="truncate text-xs font-medium text-slate-400">
                             {o.phone}
                           </span>
                         )}
                         {o.address && (
-                          <span className="truncate text-xs font-medium text-slate-500">
+                          <span className="truncate text-xs font-medium text-slate-400">
                             {o.address}
                           </span>
                         )}

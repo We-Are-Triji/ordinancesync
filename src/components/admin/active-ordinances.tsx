@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  Loader2,
   Pencil,
   Plus,
   Search,
@@ -21,6 +20,7 @@ import PolicyDetailModal from "./policy-detail-modal"
 import EditPolicyModal from "./edit-policy-modal"
 import DeletePolicyDialog from "./delete-policy-dialog"
 import DispatchModal from "./dispatch-modal"
+import { TableSkeletonRows } from "./table-skeleton-rows"
 
 const PAGE_SIZE = 10
 
@@ -246,14 +246,17 @@ export default function ActiveOrdinances() {
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-[13px] text-slate-700">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
-                    <span className="inline-flex items-center gap-2 font-sans text-sm font-semibold text-slate-500">
-                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                      Loading log...
-                    </span>
-                  </td>
-                </tr>
+                <TableSkeletonRows
+                  rows={PAGE_SIZE}
+                  columns={[
+                    { width: "w-36" }, // Timestamp
+                    { width: "w-24" }, // Ordinance No.
+                    { width: "w-56" }, // Title
+                    { width: "w-16", asChip: true }, // Status chip
+                    { width: "w-6", align: "right" }, // Pages
+                    { width: "w-20", align: "right" }, // Actions
+                  ]}
+                />
               ) : error ? (
                 <tr>
                   <td

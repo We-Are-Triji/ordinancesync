@@ -8,7 +8,6 @@ import {
   Bot,
   Building2,
   CheckCircle2,
-  Landmark,
   LayoutDashboard,
   LockKeyhole,
   MessagesSquare,
@@ -16,6 +15,8 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react"
+
+import { Logo } from "@/components/ui/logo"
 
 const services = [
   {
@@ -154,8 +155,8 @@ export default function LandingPage() {
             className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1697cf] sm:gap-3"
             aria-label="OrdinanceSync home"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1697cf] text-white sm:size-10">
-              <Landmark className="size-5" aria-hidden="true" />
+            <span className="flex size-9 shrink-0 items-center justify-center sm:size-10">
+              <Logo size={40} priority className="size-full" />
             </span>
             <span className="truncate text-[15px] font-black uppercase text-[#1697cf] sm:text-xl">
               OrdinanceSync
