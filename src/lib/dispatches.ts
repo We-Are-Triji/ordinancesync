@@ -52,3 +52,25 @@ export async function getDispatch(id: string): Promise<Dispatch | null> {
   const doc = await db.collection(COLLECTION).findOne({ _id: new ObjectId(id) })
   return doc ? serialize(doc) : null
 }
+
+/**
+ * Most recent dispatch for an ordinance, or null if it was never dispatched.
+ *
+ * Used by the policy detail modal to surface "last dispatched at / N sent"
+ * without forcing a full history fetch. Sorted by createdAt desc so the
+ * automatic dispatch right after creation, plus any manual re-dispatches,
+ * resolve to the freshest entry.
+ */
+export async function getLatestDispatchForOrdinance(
+  ordinanceId: string
+): Promise<Dispatch | null> {
+  if (!ordinanceId) return null
+  const db = await getDb()
+  const doc = await db
+    .collection(COLLECTION)
+    .find({ ordinanceId })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .next()
+  return doc ? serialize(doc) : null
+}

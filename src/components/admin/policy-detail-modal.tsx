@@ -1,9 +1,10 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useRef } from "react"
-import { X } from "lucide-react"
-import type { Ordinance } from "@/lib/types"
+import { useEffect, useState, useRef } from "react"
+import { Loader2, Send, X } from "lucide-react"
+import type { Dispatch, Ordinance } from "@/lib/types"
+import DispatchModal from "./dispatch-modal"
 import { useFocusTrap } from "@/lib/use-focus-trap"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
@@ -32,6 +33,53 @@ export default function PolicyDetailModal({
   onClose,
 }: PolicyDetailModalProps) {
   const fileUrl = `/api/admin/ordinances/file/${ordinance.fileId}`
+  const [showDispatch, setShowDispatch] = useState(false)
+
+  // Latest dispatch (auto-run after upload, plus any manual re-dispatches).
+  // Loaded lazily so the modal opens immediately and the line fills in after.
+  const [latestDispatch, setLatestDispatch] = useState<Dispatch | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+
+  async function loadLatestDispatch() {
+    setHistoryLoading(true)
+    setHistoryError(null)
+    try {
+      const res = await fetch(
+        `/api/admin/dispatches?ordinanceId=${encodeURIComponent(ordinance._id)}&latest=1`
+      )
+      if (!res.ok) throw new Error("Failed to load dispatch history.")
+      const data = (await res.json()) as { dispatch: Dispatch | null }
+      setLatestDispatch(data.dispatch)
+    } catch (err) {
+      setHistoryError(
+        err instanceof Error ? err.message : "Failed to load dispatch history."
+      )
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadLatestDispatch()
+    // We deliberately depend on the ordinance id only — re-fetch when the
+    // detail view is opened for a different ordinance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordinance._id])
+
+  // After the dispatch modal closes we refresh history so the freshly-sent
+  // run shows up here without a full page reload.
+  function handleDispatchClose() {
+    setShowDispatch(false)
+    loadLatestDispatch()
+  }
+
+  const sentCount =
+    latestDispatch?.items.filter((i) => i.status === "sent").length ?? 0
+  const failedCount =
+    latestDispatch?.items.filter((i) => i.status === "failed").length ?? 0
+  const dispatchedAtIso =
+    latestDispatch?.dispatchedAt ?? latestDispatch?.createdAt
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, { onClose })
 
@@ -77,6 +125,51 @@ export default function PolicyDetailModal({
             />
           </dl>
 
+          {/* Dispatch summary + re-dispatch entry point. */}
+          <div className="mb-5 flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Notifications
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-700">
+                {historyLoading ? (
+                  <span className="inline-flex items-center gap-1.5 text-slate-500">
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                    Checking history...
+                  </span>
+                ) : historyError ? (
+                  <span className="text-red-600">{historyError}</span>
+                ) : latestDispatch && dispatchedAtIso ? (
+                  <>
+                    Last dispatched {formatDate(dispatchedAtIso)} —{" "}
+                    <span className="text-emerald-700">{sentCount} sent</span>
+                    {failedCount > 0 && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <span className="text-red-600">
+                          {failedCount} failed
+                        </span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-slate-500">
+                    No dispatch on record yet for this ordinance.
+                  </span>
+                )}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDispatch(true)}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-[#1697cf] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#087fb1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1697cf]"
+            >
+              <Send className="size-4" aria-hidden="true" />
+              {latestDispatch ? "Re-dispatch notifications" : "Dispatch notifications"}
+            </button>
+          </div>
+
           {ordinance.summary && (
             <div className="mb-5 rounded-md bg-slate-50 px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -89,6 +182,13 @@ export default function PolicyDetailModal({
           <PdfPreview file={fileUrl} />
         </div>
       </div>
+
+      {showDispatch && (
+        <DispatchModal
+          ordinance={ordinance}
+          onClose={handleDispatchClose}
+        />
+      )}
     </div>
   )
 }
