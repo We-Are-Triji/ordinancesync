@@ -3,9 +3,10 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Building2, FileStack, Landmark, LogOut, Settings } from "lucide-react"
+import { Building2, FileStack, LogOut, Settings } from "lucide-react"
 import { useClerk } from "@clerk/nextjs"
 import { ToastProvider } from "@/components/ui/toast"
+import { Logo } from "@/components/ui/logo"
 import ActiveOrdinances from "./active-ordinances"
 import OfficesTab from "./offices-tab"
 import SettingsTab from "./settings-tab"
@@ -40,8 +41,8 @@ export default function DashboardShell() {
               className="flex min-w-0 items-center gap-2 rounded-md sm:gap-3"
               aria-label="OrdinanceSync home"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1697cf] text-white sm:size-10">
-                <Landmark className="size-5" aria-hidden="true" />
+              <span className="flex size-9 shrink-0 items-center justify-center sm:size-10">
+                <Logo size={40} priority className="size-full" />
               </span>
               <span className="truncate text-[15px] font-black uppercase text-[#1697cf] sm:text-xl">
                 OrdinanceSync

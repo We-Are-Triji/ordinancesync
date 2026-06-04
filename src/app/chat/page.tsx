@@ -5,7 +5,8 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ArrowUp, Landmark, Loader2, Mic, Sparkles } from "lucide-react"
+import { ArrowUp, Loader2, Mic, Sparkles } from "lucide-react"
+import { Logo } from "@/components/ui/logo"
 
 const VoiceModal = dynamic(() => import("@/components/chat/voice-modal"), {
   ssr: false,
@@ -135,8 +136,8 @@ export default function ChatPage() {
             className="flex items-center gap-2"
             aria-label="OrdinanceSync home"
           >
-            <span className="flex size-8 items-center justify-center rounded-md bg-[#1697cf] text-white">
-              <Landmark className="size-4" aria-hidden="true" />
+            <span className="flex size-8 items-center justify-center">
+              <Logo size={32} priority className="size-full" />
             </span>
             <span className="text-sm font-black uppercase text-[#1697cf]">
               OrdinanceSync
