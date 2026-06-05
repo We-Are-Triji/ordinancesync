@@ -29,6 +29,9 @@ import {
 const VoiceModal = dynamic(() => import("@/components/chat/voice-modal"), {
   ssr: false,
 })
+const SpeakButton = dynamic(() => import("@/components/chat/speak-button"), {
+  ssr: false,
+})
 
 interface Message {
   role: "user" | "assistant"
@@ -142,9 +145,27 @@ export default function ChatPage() {
 
   useEffect(() => clearMascotIdleTimer, [])
 
-  function handleVoiceTranscript(text: string) {
+  function handleVoiceTranscript(text: string, language?: string) {
     setVoiceOpen(false)
-    if (text.trim()) send(text)
+    // A voice question gets a spoken answer back — the full voice loop.
+    if (text.trim()) send(text, { speak: true, language })
+  }
+
+  // Plays an answer aloud via /api/speak. Used for the voice loop.
+  async function speakAnswer(text: string, language?: string) {
+    try {
+      const res = await fetch("/api/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, language: language ?? "fil-PH" }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.audio) return
+      const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`)
+      await audio.play()
+    } catch {
+      /* non-fatal — the text answer is already shown */
+    }
   }
 
   useEffect(() => {
@@ -154,7 +175,10 @@ export default function ChatPage() {
     })
   }, [messages, loading])
 
-  async function send(text: string) {
+  async function send(
+    text: string,
+    opts?: { speak?: boolean; language?: string }
+  ) {
     const question = text.trim()
     if (!question || requestInFlightRef.current) return
 
@@ -201,6 +225,11 @@ export default function ChatPage() {
             setMascotState("idle")
           }
         }, ANSWERING_HOLD_MS)
+      }
+
+      // Voice loop: speak the answer back for voice-originated questions.
+      if (opts?.speak && data.answer) {
+        speakAnswer(data.answer, opts.language)
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong."
@@ -592,7 +621,10 @@ export default function ChatPage() {
                             Just now
                           </p>
                         </div>
+                        <div className="mt-1.5 flex justify-end border-t border-slate-100 pt-1.5">
+                        <SpeakButton text={m.content} />
                       </div>
+                    </div>
                     )}
                   </div>
                 ))}

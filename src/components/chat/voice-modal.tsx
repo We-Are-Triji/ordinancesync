@@ -20,7 +20,7 @@ type Phase =
 
 interface VoiceModalProps {
   onClose: () => void
-  onTranscript: (text: string) => void
+  onTranscript: (text: string, language?: string) => void
 }
 
 const MAX_RECORDING_MS = 15_000
@@ -262,7 +262,7 @@ export default function VoiceModal({ onClose, onTranscript }: VoiceModalProps) {
 
   function confirmAndSend() {
     const text = transcript.trim()
-    if (text) onTranscript(text)
+    if (text) onTranscript(text, languageRef.current)
   }
 
   return (

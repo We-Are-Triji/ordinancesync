@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  Sparkles,
   X,
 } from "lucide-react"
 
@@ -23,6 +24,7 @@ import { useFocusTrap } from "@/lib/use-focus-trap"
 import ActiveOrdinances from "./active-ordinances"
 import OfficesTab from "./offices-tab"
 import SettingsTab from "./settings-tab"
+import AssistantTab from "./assistant-tab"
 
 /**
  * Admin dashboard shell.
@@ -44,7 +46,7 @@ import SettingsTab from "./settings-tab"
  * only the chrome around them is.
  */
 
-type TabKey = "ordinances" | "offices" | "settings"
+type TabKey = "ordinances" | "offices" | "assistant" | "settings"
 
 interface NavItem {
   key: TabKey
@@ -65,6 +67,12 @@ const navItems: NavItem[] = [
     label: "Offices",
     description: "Master directory of LGU offices and barangays.",
     icon: Building2,
+  },
+  {
+    key: "assistant",
+    label: "AI Assistant",
+    description: "Ask questions about your data in plain language.",
+    icon: Sparkles,
   },
   {
     key: "settings",
@@ -175,6 +183,7 @@ export default function DashboardShell() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_28px_-12px_rgba(8,127,177,0.12)] sm:p-6 lg:p-8">
               {active === "ordinances" && <ActiveOrdinances />}
               {active === "offices" && <OfficesTab />}
+              {active === "assistant" && <AssistantTab />}
               {active === "settings" && <SettingsTab />}
             </div>
           </main>
