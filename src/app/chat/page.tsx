@@ -17,7 +17,6 @@ import {
   MessageSquare,
   BookOpen,
   Settings,
-  Heart,
   CheckCircle2,
 } from "lucide-react"
 import {
@@ -75,6 +74,20 @@ function formatRetryAfter(seconds: unknown): string | null {
   if (seconds < 60) return `${Math.ceil(seconds)} seconds`
   const minutes = Math.ceil(seconds / 60)
   return `${minutes} minute${minutes === 1 ? "" : "s"}`
+}
+
+// Map mascot states to image paths
+function getMascotImagePath(state: MascotState): string {
+  const stateToImage: Partial<Record<MascotState, string>> = {
+    thinking: "thinking",
+    greeting: "idle",
+    answering: "idle",
+    blocked: "blocked",
+    idle: "idle",
+    apologetic: "apologetic",
+  }
+  const imageName = stateToImage[state] || "idle"
+  return `/mascot/${imageName}.png`
 }
 
 export default function ChatPage() {
@@ -305,13 +318,13 @@ export default function ChatPage() {
   // ============================================================================
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: COLORS.cream }}>
-      {/* Left sidebar — hidden below lg */}
-      <div className="hidden flex-col lg:flex" style={{ width: "220px" }}>
+      {/* Left sidebar — hidden in chat mode (no sidebar) */}
+      <div className="hidden">
         <SidebarContent />
       </div>
 
       {/* Right column — chat panel */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
         {/* HEADER */}
         <header
           className="shrink-0 border-b px-4 py-3 sm:px-6"
@@ -364,27 +377,69 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {!started ? (
-          // ---- Landing screen ----
-          <main className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-8 sm:px-6">
-            <div className="w-full max-w-2xl text-center">
+        {/* Landing screen — absolute positioned for smooth transition */}
+        <main
+          className="absolute inset-0 flex flex-col items-center justify-center overflow-y-auto px-4 py-10 sm:px-6 transition-opacity duration-250 ease-in"
+          style={{
+            opacity: !started ? 1 : 0,
+            pointerEvents: !started ? "auto" : "none",
+            zIndex: !started ? 10 : 0,
+          }}
+        >
+            <div className="w-full max-w-3xl text-center">
+              <div className="relative mx-auto flex w-full max-w-sm justify-center pb-2">
+                <div
+                  className="absolute left-1/2 top-8 -translate-x-1/2 rounded-3xl border px-4 py-2 text-left text-xs font-bold shadow-sm sm:left-[68%] sm:top-10 sm:w-56 sm:translate-x-0"
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderColor: COLORS.border,
+                    color: COLORS.navy,
+                  }}
+                >
+                  Kumusta! Ask me anything about Cebu City ordinances.
+                  <span
+                    className="absolute -bottom-2 left-8 size-4 rotate-45 border-b border-r sm:left-6"
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      borderColor: COLORS.border,
+                    }}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div
+                  className="mt-20 rounded-full border p-5 shadow-[0_18px_48px_rgba(27,42,74,0.12)] sm:mt-0 sm:p-6"
+                  style={{
+                    backgroundColor: COLORS.cream,
+                    borderColor: COLORS.border,
+                  }}
+                >
+                  <Mascot
+                    state={mascotState}
+                    size={220}
+                    aria-hidden={false}
+                  />
+                </div>
+              </div>
+
               <h1
-                className="text-3xl font-black sm:text-4xl"
+                className="mt-8 text-3xl font-black leading-tight sm:text-4xl"
                 style={{ color: COLORS.navy }}
               >
-                Ask about Cebu City ordinances
+                Hi, I&apos;m Asst. Kiko.
+                <br />
+                Ask about Cebu City ordinances.
               </h1>
               <p
-                className="mt-3 text-sm font-semibold"
+                className="mx-auto mt-4 max-w-xl text-sm font-semibold leading-6"
                 style={{ color: COLORS.textMuted }}
               >
                 Mangutana sa English o Bisaya. Get answers grounded in official
                 city ordinances.
               </p>
 
-              <form onSubmit={handleSubmit} className="mt-8">
+              <form onSubmit={handleSubmit} className="mx-auto mt-8 max-w-2xl">
                 <div
-                  className="flex items-center gap-2 rounded-2xl border px-4 py-3 shadow-sm transition focus-within:ring-2 focus-within:ring-offset-2"
+                  className="flex items-center gap-2 rounded-[1.75rem] border px-4 py-3 shadow-[0_10px_28px_rgba(27,42,74,0.08)] transition focus-within:ring-2 focus-within:ring-offset-2"
                   style={{
                     backgroundColor: COLORS.surface,
                     borderColor: COLORS.border,
@@ -424,17 +479,17 @@ export default function ChatPage() {
                 </div>
               </form>
 
-              <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <div className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2.5">
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => send(s)}
-                    className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:brightness-95"
+                    className="rounded-full border px-4 py-2 text-xs font-bold shadow-sm transition hover:-translate-y-0.5 hover:brightness-95"
                     style={{
-                      borderColor: COLORS.border,
+                      borderColor: COLORS.goldLight,
                       color: COLORS.navy,
-                      backgroundColor: COLORS.surface,
+                      backgroundColor: COLORS.cream,
                     }}
                   >
                     {s}
@@ -446,10 +501,18 @@ export default function ChatPage() {
                 <p className="mt-5 text-sm font-semibold text-red-600">{error}</p>
               )}
             </div>
-          </main>
-        ) : (
-          // ---- Conversation view ----
-          <>
+        </main>
+
+        {/* Chat layout — fades in with delay */}
+        <div
+          className="flex flex-1 flex-col overflow-hidden transition-opacity duration-250 ease-in"
+          style={{
+            opacity: started ? 1 : 0,
+            pointerEvents: started ? "auto" : "none",
+            transitionDelay: started ? "50ms" : "0ms",
+            zIndex: started ? 10 : 0,
+          }}
+        >
             {/* Messages area */}
             <div
               ref={scrollRef}
@@ -572,7 +635,7 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Input bar */}
+            {/* Input bar with mascot avatar */}
             <div
               className="shrink-0 border-t px-4 py-4 sm:px-6"
               style={{
@@ -588,6 +651,12 @@ export default function ChatPage() {
                     "--tw-ring-color": COLORS.navy,
                   } as React.CSSProperties}
                 >
+                  {/* Mascot avatar */}
+                  <img
+                    src={getMascotImagePath(mascotState)}
+                    alt="Kiko"
+                    className="size-11 shrink-0 rounded-full object-contain"
+                  />
                   <input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -627,35 +696,7 @@ export default function ChatPage() {
                 </p>
               </form>
             </div>
-
-            {/* Feature strip */}
-            <div
-              className="shrink-0 border-t px-4 py-4 sm:px-6"
-              style={{
-                backgroundColor: COLORS.surface,
-                borderColor: COLORS.border,
-              }}
-            >
-              <div className="mx-auto grid max-w-4xl grid-cols-3 gap-4">
-                <FeatureCard
-                  icon={Heart}
-                  title="Friendly Assistant"
-                  subtitle="Always here to help"
-                />
-                <FeatureCard
-                  icon={CheckCircle2}
-                  title="Trusted Information"
-                  subtitle="Accurate and up-to-date"
-                />
-                <FeatureCard
-                  icon={MessageSquare}
-                  title="24/7 Support"
-                  subtitle="Whenever you need it"
-                />
-              </div>
-            </div>
-          </>
-        )}
+        </div>
 
         {voiceOpen && (
           <VoiceModal
@@ -664,32 +705,6 @@ export default function ChatPage() {
           />
         )}
       </div>
-    </div>
-  )
-}
-
-interface FeatureCardProps {
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
-  title: string
-  subtitle: string
-}
-
-function FeatureCard({ icon: Icon, title, subtitle }: FeatureCardProps) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      <Icon className="size-5" style={{ color: COLORS.navy }} />
-      <p
-        className="mt-1.5 text-xs font-bold"
-        style={{ color: COLORS.navy }}
-      >
-        {title}
-      </p>
-      <p
-        className="text-xs font-medium"
-        style={{ color: COLORS.textMuted }}
-      >
-        {subtitle}
-      </p>
     </div>
   )
 }
