@@ -1,12 +1,31 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useMemo, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
-import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ArrowUp, Loader2, Mic, Sparkles } from "lucide-react"
-import { Logo } from "@/components/ui/logo"
+import {
+  ArrowUp,
+  Loader2,
+  Mic,
+  Menu,
+  MoreVertical,
+  RefreshCw,
+  Trash2,
+  HelpCircle,
+  LogOut,
+  MessageSquare,
+  BookOpen,
+  Settings,
+  Heart,
+  CheckCircle2,
+} from "lucide-react"
+import {
+  Mascot,
+  type MascotState,
+  isBlockedAnswer,
+  isBlockedError,
+} from "@/components/chat/mascot"
 
 const VoiceModal = dynamic(() => import("@/components/chat/voice-modal"), {
   ssr: false,
@@ -22,6 +41,21 @@ const SUGGESTIONS = [
   "What ordinances cover traffic in Cebu City?",
   "Naa bay ordinansa bahin sa noise pollution?",
 ]
+
+const ANSWERING_HOLD_MS = 900
+
+// Color tokens
+const COLORS = {
+  navy: "#1B2A4A",
+  navyLight: "#2C3E6B",
+  gold: "#C9A84C",
+  goldLight: "#E8C97A",
+  cream: "#FAF7F2",
+  surface: "#FFFFFF",
+  border: "#E8E0D4",
+  textMuted: "#9B8F82",
+  online: "#22C55E",
+} as const
 
 // Stable per-visitor id for session continuity (memory across follow-ups).
 function getUserId(): string {
@@ -46,14 +80,39 @@ function formatRetryAfter(seconds: unknown): string | null {
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [requestInFlight, setRequestInFlight] = useState(false)
+  const [mascotState, setMascotState] = useState<MascotState>("greeting")
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [voiceOpen, setVoiceOpen] = useState(false)
   const [voiceSupported, setVoiceSupported] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const started = messages.length > 0
+  const loading = requestInFlight
   const scrollRef = useRef<HTMLDivElement>(null)
+  const requestInFlightRef = useRef(false)
+  const mascotIdleTimerRef = useRef<number | null>(null)
+
+  function clearMascotIdleTimer() {
+    if (!mascotIdleTimerRef.current) return
+    window.clearTimeout(mascotIdleTimerRef.current)
+    mascotIdleTimerRef.current = null
+  }
+
+  function setRequestActive(active: boolean) {
+    requestInFlightRef.current = active
+    setRequestInFlight(active)
+  }
+
+  function resetChat() {
+    clearMascotIdleTimer()
+    setRequestActive(false)
+    setMessages([])
+    setInput("")
+    setError(null)
+    setMascotState("greeting")
+  }
 
   // Voice needs mic capture + MediaRecorder, available in modern browsers over
   // HTTPS/localhost. Detect once on mount so we only show the mic when usable.
@@ -67,6 +126,8 @@ export default function ChatPage() {
     }, 0)
     return () => window.clearTimeout(timeout)
   }, [])
+
+  useEffect(() => clearMascotIdleTimer, [])
 
   function handleVoiceTranscript(text: string) {
     setVoiceOpen(false)
@@ -82,12 +143,14 @@ export default function ChatPage() {
 
   async function send(text: string) {
     const question = text.trim()
-    if (!question || loading) return
+    if (!question || requestInFlightRef.current) return
 
+    clearMascotIdleTimer()
+    setRequestActive(true)
+    setMascotState("thinking")
     setError(null)
     setInput("")
     setMessages((prev) => [...prev, { role: "user", content: question }])
-    setLoading(true)
 
     try {
       const res = await fetch("/api/chat", {
@@ -111,14 +174,27 @@ export default function ChatPage() {
       }
 
       if (data.sessionId && !sessionId) setSessionId(data.sessionId)
+      const answer = typeof data.answer === "string" ? data.answer : ""
+      const blocked = isBlockedAnswer(answer)
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.answer },
+        { role: "assistant", content: answer },
       ])
+      setMascotState(blocked ? "blocked" : "answering")
+      if (!blocked) {
+        mascotIdleTimerRef.current = window.setTimeout(() => {
+          mascotIdleTimerRef.current = null
+          if (!requestInFlightRef.current) {
+            setMascotState("idle")
+          }
+        }, ANSWERING_HOLD_MS)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.")
+      const message = err instanceof Error ? err.message : "Something went wrong."
+      setError(message)
+      setMascotState(isBlockedError(message) ? "blocked" : "apologetic")
     } finally {
-      setLoading(false)
+      setRequestActive(false)
     }
   }
 
@@ -127,189 +203,493 @@ export default function ChatPage() {
     send(input)
   }
 
-  return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#eaf8ff] text-slate-900">
-      <header className="shrink-0 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
-          <Link
-            href="/"
-            className="flex items-center gap-2"
-            aria-label="OrdinanceSync home"
+  // Memoize mascot element to prevent unnecessary re-renders when input changes
+  const mascotElement = useMemo(
+    () => (
+      <Mascot
+        state={mascotState}
+        size={100}
+        aria-hidden={false}
+      />
+    ),
+    [mascotState]
+  )
+
+  // ============================================================================
+  // SIDEBAR (LEFT COLUMN) — visible on lg: and above
+  // ============================================================================
+  function SidebarContent() {
+    return (
+      <div
+        className="flex h-full flex-col border-r"
+        style={{
+          backgroundColor: COLORS.cream,
+          borderColor: COLORS.border,
+        }}
+      >
+        {/* Mascot section */}
+        <div className="flex flex-col items-center px-4 py-6">
+          {mascotElement}
+          <p
+            className="mt-3 text-sm font-semibold"
+            style={{ color: COLORS.navy }}
           >
-            <span className="flex size-8 items-center justify-center">
-              <Logo size={32} priority className="size-full" />
+            Asst. Kiko
+          </p>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: COLORS.online }}
+            />
+            <span
+              className="text-xs font-medium"
+              style={{ color: COLORS.textMuted }}
+            >
+              Online
             </span>
-            <span className="text-sm font-black uppercase text-[#1697cf]">
-              OrdinanceSync
-            </span>
-          </Link>
-          <Link
-            href="/"
-            className="text-xs font-bold text-slate-500 transition hover:text-[#1697cf]"
-          >
-            Home
-          </Link>
-        </div>
-      </header>
-
-      {!started ? (
-        // ---- Google-style centered landing ----
-        <main className="flex flex-1 flex-col items-center justify-center px-4">
-          <div className="w-full max-w-xl text-center">
-            <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-[#1697cf] text-white shadow-lg shadow-[#1697cf]/20">
-              <Sparkles className="size-7" aria-hidden="true" />
-            </div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              Ask about Cebu City ordinances
-            </h1>
-            <p className="mt-3 text-sm font-semibold text-slate-500">
-              Mangutana sa English o Bisaya. Get answers grounded in official
-              city ordinances.
-            </p>
-
-            <form onSubmit={handleSubmit} className="mt-8">
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 shadow-lg shadow-slate-900/5 transition focus-within:border-[#1697cf] focus-within:ring-2 focus-within:ring-[#1697cf]/20">
-                <input
-                  autoFocus
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question in English or Bisaya"
-                  className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
-                  aria-label="Your question"
-                />
-                {voiceSupported && (
-                  <button
-                    type="button"
-                    onClick={() => setVoiceOpen(true)}
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#1697cf] transition hover:bg-[#1697cf]/10"
-                    aria-label="Ask with voice"
-                    title="Ask with voice"
-                  >
-                    <Mic className="size-4" aria-hidden="true" />
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={!input.trim()}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1697cf] text-white transition hover:bg-[#087fb1] disabled:opacity-40"
-                  aria-label="Send"
-                >
-                  <ArrowUp className="size-4" aria-hidden="true" />
-                </button>
-              </div>
-            </form>
-
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => send(s)}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#1697cf] hover:text-[#1697cf]"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            {error && (
-              <p className="mt-5 text-sm font-semibold text-red-600">{error}</p>
-            )}
           </div>
-        </main>
-      ) : (
-        // ---- Conversation view ----
-        <>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
-                >
-                  {m.role === "user" ? (
-                    <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-[#1697cf] px-4 py-2.5 text-sm font-medium text-white">
-                      {m.content}
-                    </div>
-                  ) : (
-                    <div className="max-w-[90%] rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                      <div className="prose prose-sm prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-strong:text-slate-900">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {m.content}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+        </div>
 
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">
-                    <Loader2 className="size-4 animate-spin text-[#1697cf]" aria-hidden="true" />
-                    Searching ordinances...
-                  </div>
+        {/* New Chat button */}
+        <div className="px-3">
+          <button
+            onClick={resetChat}
+            className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+            style={{ backgroundColor: COLORS.navy }}
+          >
+            + New Chat
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <nav className="mt-8 flex flex-col gap-2 px-3">
+          <NavLink icon={MessageSquare} label="Chats" />
+          <NavLink icon={BookOpen} label="Knowledge Base" />
+          <NavLink icon={Settings} label="Settings" />
+        </nav>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Bottom links */}
+        <nav className="border-t px-3 py-4" style={{ borderColor: COLORS.border }}>
+          <NavLink icon={HelpCircle} label="Help" />
+          <NavLink icon={LogOut} label="Log out" />
+        </nav>
+      </div>
+    )
+  }
+
+  interface NavLinkProps {
+    icon: React.ComponentType<{ className?: string }>
+    label: string
+  }
+
+  function NavLink({ icon: Icon, label }: NavLinkProps) {
+    return (
+      <button
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition hover:brightness-95"
+        style={{
+          color: COLORS.navy,
+          backgroundColor: "transparent",
+        }}
+      >
+        <Icon className="size-4 shrink-0" />
+        <span>{label}</span>
+      </button>
+    )
+  }
+
+  // ============================================================================
+  // MAIN LAYOUT
+  // ============================================================================
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: COLORS.cream }}>
+      {/* Left sidebar — hidden below lg */}
+      <div className="hidden flex-col lg:flex" style={{ width: "220px" }}>
+        <SidebarContent />
+      </div>
+
+      {/* Right column — chat panel */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* HEADER */}
+        <header
+          className="shrink-0 border-b px-4 py-3 sm:px-6"
+          style={{
+            backgroundColor: COLORS.surface,
+            borderColor: COLORS.border,
+          }}
+        >
+          <div className="flex items-center justify-between">
+            {/* Left: hamburger on mobile */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="hidden rounded-lg p-2 transition hover:brightness-90 md:hidden"
+              style={{ color: COLORS.navy }}
+              aria-label="Toggle menu"
+            >
+              <Menu className="size-5" />
+            </button>
+
+            {/* Center: mascot + name (mobile) or just empty (desktop) */}
+            <div className="hidden items-center gap-2 md:flex">
+              {/* Placeholder for alignment on desktop */}
+            </div>
+
+            {/* Right: action buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                className="rounded-lg p-2 transition hover:brightness-90"
+                style={{ color: COLORS.navy }}
+                aria-label="Refresh"
+              >
+                <RefreshCw className="size-4" />
+              </button>
+              <button
+                onClick={resetChat}
+                className="rounded-lg p-2 transition hover:brightness-90"
+                style={{ color: COLORS.navy }}
+                aria-label="Clear chat"
+              >
+                <Trash2 className="size-4" />
+              </button>
+              <button
+                className="rounded-lg p-2 transition hover:brightness-90 lg:hidden"
+                style={{ color: COLORS.navy }}
+                aria-label="More"
+              >
+                <MoreVertical className="size-4" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {!started ? (
+          // ---- Landing screen ----
+          <main className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-8 sm:px-6">
+            <div className="w-full max-w-2xl text-center">
+              <h1
+                className="text-3xl font-black sm:text-4xl"
+                style={{ color: COLORS.navy }}
+              >
+                Ask about Cebu City ordinances
+              </h1>
+              <p
+                className="mt-3 text-sm font-semibold"
+                style={{ color: COLORS.textMuted }}
+              >
+                Mangutana sa English o Bisaya. Get answers grounded in official
+                city ordinances.
+              </p>
+
+              <form onSubmit={handleSubmit} className="mt-8">
+                <div
+                  className="flex items-center gap-2 rounded-2xl border px-4 py-3 shadow-sm transition focus-within:ring-2 focus-within:ring-offset-2"
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderColor: COLORS.border,
+                    "--tw-ring-color": COLORS.navy,
+                  } as React.CSSProperties}
+                >
+                  <input
+                    autoFocus
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Ask a question..."
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    style={{ color: COLORS.navy }}
+                    aria-label="Your question"
+                  />
+                  {voiceSupported && (
+                    <button
+                      type="button"
+                      onClick={() => setVoiceOpen(true)}
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-90"
+                      style={{ color: COLORS.navy }}
+                      aria-label="Ask with voice"
+                      title="Ask with voice"
+                    >
+                      <Mic className="size-4" />
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={!input.trim()}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-110 disabled:opacity-40"
+                    style={{ backgroundColor: COLORS.navy }}
+                    aria-label="Send"
+                  >
+                    <ArrowUp className="size-4" />
+                  </button>
                 </div>
-              )}
+              </form>
+
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => send(s)}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:brightness-95"
+                    style={{
+                      borderColor: COLORS.border,
+                      color: COLORS.navy,
+                      backgroundColor: COLORS.surface,
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
 
               {error && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                    {error}
-                  </div>
-                </div>
+                <p className="mt-5 text-sm font-semibold text-red-600">{error}</p>
               )}
             </div>
-          </div>
-
-          <div className="border-t border-slate-200 bg-white/90 backdrop-blur">
-            <form
-              onSubmit={handleSubmit}
-              className="mx-auto max-w-3xl px-4 py-4"
+          </main>
+        ) : (
+          // ---- Conversation view ----
+          <>
+            {/* Messages area */}
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto px-4 py-6 sm:px-6"
             >
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 shadow-sm transition focus-within:border-[#1697cf] focus-within:ring-2 focus-within:ring-[#1697cf]/20">
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a follow-up question..."
-                  className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
-                  aria-label="Your question"
-                />
-                {voiceSupported && (
-                  <button
-                    type="button"
-                    onClick={() => setVoiceOpen(true)}
-                    disabled={loading}
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#1697cf] transition hover:bg-[#1697cf]/10 disabled:opacity-40"
-                    aria-label="Ask with voice"
-                    title="Ask with voice"
-                  >
-                    <Mic className="size-4" aria-hidden="true" />
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={!input.trim() || loading}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1697cf] text-white transition hover:bg-[#087fb1] disabled:opacity-40"
-                  aria-label="Send"
-                >
-                  <ArrowUp className="size-4" aria-hidden="true" />
-                </button>
-              </div>
-              <p className="mt-2 text-center text-xs font-medium text-slate-500">
-                Answers come only from official Cebu City ordinances on file.
-              </p>
-            </form>
-          </div>
-        </>
-      )}
+              <div className="mx-auto max-w-4xl space-y-4">
+                {messages.map((m, i) => (
+                  <div key={i}>
+                    {m.role === "user" ? (
+                      // User message
+                      <div className="flex justify-end">
+                        <div
+                          className="max-w-[85%] rounded-3xl px-4 py-2.5 text-sm font-medium text-white sm:max-w-[75%]"
+                          style={{ backgroundColor: COLORS.navy }}
+                        >
+                          {m.content}
+                        </div>
+                      </div>
+                    ) : (
+                      // Assistant message
+                      <div className="flex justify-start gap-3">
+                        <img
+                          src="/mascot/idle.png"
+                          alt=""
+                          className="size-10 shrink-0 rounded-full object-contain"
+                        />
+                        <div
+                          className="max-w-[85%] rounded-2xl border px-4 py-3 shadow-sm sm:max-w-[75%]"
+                          style={{
+                            backgroundColor: COLORS.surface,
+                            borderColor: COLORS.border,
+                          }}
+                        >
+                          <h3
+                            className="text-sm font-bold"
+                            style={{ color: COLORS.navy }}
+                          >
+                            Hi! I&apos;m Asst. Kiko 🐾
+                          </h3>
+                          <div
+                            className="prose prose-sm prose-slate mt-2 max-w-none"
+                            style={{ "--tw-prose-headings": COLORS.navy } as React.CSSProperties}
+                          >
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                ul: ({ children }) => (
+                                  <ul className="list-none space-y-1 pl-0">
+                                    {children}
+                                  </ul>
+                                ),
+                                li: ({ children }) => (
+                                  <li className="flex items-start gap-2">
+                                    <CheckCircle2
+                                      className="mt-0.5 size-4 shrink-0"
+                                      style={{ color: COLORS.online }}
+                                    />
+                                    <span style={{ color: COLORS.navy }}>
+                                      {children}
+                                    </span>
+                                  </li>
+                                ),
+                                p: ({ children }) => (
+                                  <p style={{ color: COLORS.navy, margin: "0.5rem 0" }}>
+                                    {children}
+                                  </p>
+                                ),
+                              }}
+                            >
+                              {m.content}
+                            </ReactMarkdown>
+                          </div>
+                          <p
+                            className="mt-2 text-xs font-medium"
+                            style={{ color: COLORS.textMuted }}
+                          >
+                            Just now
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
 
-      {voiceOpen && (
-        <VoiceModal
-          onClose={() => setVoiceOpen(false)}
-          onTranscript={handleVoiceTranscript}
-        />
-      )}
+                {loading && (
+                  <div className="flex justify-start gap-3">
+                    <img
+                      src="/mascot/thinking.png"
+                      alt=""
+                      className="size-10 shrink-0 rounded-full object-contain"
+                    />
+                    <div
+                      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold"
+                      style={{
+                        backgroundColor: COLORS.surface,
+                        borderColor: COLORS.border,
+                        color: COLORS.textMuted,
+                      }}
+                    >
+                      <Loader2 className="size-4 animate-spin" />
+                      Searching ordinances...
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="flex justify-start">
+                    <div
+                      className="rounded-2xl border px-4 py-3 text-sm font-semibold"
+                      style={{
+                        backgroundColor: "#FEE2E2",
+                        borderColor: "#FECACA",
+                        color: "#991B1B",
+                      }}
+                    >
+                      {error}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Input bar */}
+            <div
+              className="shrink-0 border-t px-4 py-4 sm:px-6"
+              style={{
+                backgroundColor: COLORS.surface,
+                borderColor: COLORS.border,
+              }}
+            >
+              <form onSubmit={handleSubmit} className="mx-auto max-w-4xl">
+                <div
+                  className="flex items-center gap-2 rounded-2xl border px-4 py-2.5 transition focus-within:ring-2 focus-within:ring-offset-2"
+                  style={{
+                    borderColor: COLORS.border,
+                    "--tw-ring-color": COLORS.navy,
+                  } as React.CSSProperties}
+                >
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type your message..."
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    style={{ color: COLORS.navy }}
+                    aria-label="Your message"
+                  />
+                  {voiceSupported && (
+                    <button
+                      type="button"
+                      onClick={() => setVoiceOpen(true)}
+                      disabled={loading}
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-90 disabled:opacity-40"
+                      style={{ color: COLORS.navy }}
+                      aria-label="Ask with voice"
+                      title="Ask with voice"
+                    >
+                      <Mic className="size-4" />
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || loading}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-110 disabled:opacity-40"
+                    style={{ backgroundColor: COLORS.navy }}
+                    aria-label="Send"
+                  >
+                    <ArrowUp className="size-4" />
+                  </button>
+                </div>
+                <p
+                  className="mt-2 text-center text-xs font-medium"
+                  style={{ color: COLORS.textMuted }}
+                >
+                  Asst. Kiko can make mistakes. Please verify important information.
+                </p>
+              </form>
+            </div>
+
+            {/* Feature strip */}
+            <div
+              className="shrink-0 border-t px-4 py-4 sm:px-6"
+              style={{
+                backgroundColor: COLORS.surface,
+                borderColor: COLORS.border,
+              }}
+            >
+              <div className="mx-auto grid max-w-4xl grid-cols-3 gap-4">
+                <FeatureCard
+                  icon={Heart}
+                  title="Friendly Assistant"
+                  subtitle="Always here to help"
+                />
+                <FeatureCard
+                  icon={CheckCircle2}
+                  title="Trusted Information"
+                  subtitle="Accurate and up-to-date"
+                />
+                <FeatureCard
+                  icon={MessageSquare}
+                  title="24/7 Support"
+                  subtitle="Whenever you need it"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {voiceOpen && (
+          <VoiceModal
+            onClose={() => setVoiceOpen(false)}
+            onTranscript={handleVoiceTranscript}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface FeatureCardProps {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+  title: string
+  subtitle: string
+}
+
+function FeatureCard({ icon: Icon, title, subtitle }: FeatureCardProps) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <Icon className="size-5" style={{ color: COLORS.navy }} />
+      <p
+        className="mt-1.5 text-xs font-bold"
+        style={{ color: COLORS.navy }}
+      >
+        {title}
+      </p>
+      <p
+        className="text-xs font-medium"
+        style={{ color: COLORS.textMuted }}
+      >
+        {subtitle}
+      </p>
     </div>
   )
 }

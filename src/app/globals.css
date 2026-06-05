@@ -47,6 +47,8 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    --animate-mascot-float: mascot-float 3s ease-in-out infinite;
+    --animate-mascot-float-fast: mascot-float 1.5s ease-in-out infinite;
 }
 
 :root {
@@ -207,5 +209,19 @@
 @media (prefers-reduced-motion: reduce) {
   .page-transition {
     animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Mascot float / bob                                                       */
+/* ---------------------------------------------------------------------- */
+
+@keyframes mascot-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
   }
 }
