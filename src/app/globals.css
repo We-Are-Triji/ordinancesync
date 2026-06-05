@@ -123,11 +123,57 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     }
   html {
     @apply font-sans;
     }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Typography scale — clean SaaS hierarchy (Plus Jakarta Sans)            */
+/* ---------------------------------------------------------------------- */
+
+@layer utilities {
+  /* Hero / display headings: bold, tight leading & tracking */
+  .type-hero {
+    @apply text-[2.5rem] font-bold leading-[1.1] tracking-[-0.02em] sm:text-5xl lg:text-[4rem];
+  }
+
+  /* Section headings */
+  .type-section {
+    @apply text-2xl font-bold leading-[1.15] tracking-[-0.02em] sm:text-3xl lg:text-[2.75rem];
+  }
+
+  /* Subsection / card titles */
+  .type-subsection {
+    @apply text-lg font-semibold leading-snug tracking-[-0.01em];
+  }
+
+  /* Lead paragraphs — generous line-height for readability */
+  .type-body-lg {
+    @apply text-base font-normal leading-[1.6] sm:text-lg;
+  }
+
+  /* Standard body copy */
+  .type-body {
+    @apply text-sm font-normal leading-[1.6] sm:text-base;
+  }
+
+  /* Small labels, badges, pills */
+  .type-label {
+    @apply text-[11px] font-semibold uppercase leading-none tracking-[0.08em] sm:text-xs;
+  }
+
+  /* Buttons */
+  .type-button {
+    @apply text-base font-medium leading-none;
+  }
+
+  /* Large stat figures */
+  .type-stat {
+    @apply text-3xl font-bold leading-none tracking-[-0.02em];
+  }
 }
 
 
