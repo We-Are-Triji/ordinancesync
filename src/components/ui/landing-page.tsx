@@ -8,7 +8,6 @@ import {
   Building2,
   CheckCircle2,
   FileSearch,
-  Landmark,
   LayoutDashboard,
   LockKeyhole,
   MessagesSquare,
@@ -18,6 +17,7 @@ import {
   Sparkles,
 } from "lucide-react"
 
+import { Mascot } from "@/components/chat/mascot"
 import { Logo } from "@/components/ui/logo"
 import { cn } from "@/lib/utils"
 
@@ -365,45 +365,58 @@ export default function LandingPage() {
       {/* Hero */}
       <section id="home" className="relative overflow-hidden">
         <div
-          className="absolute inset-0 opacity-40"
+          className="absolute inset-0 opacity-60"
           style={{
-            background: `radial-gradient(ellipse 70% 55% at 50% 25%, rgba(217,164,65,0.15) 0%, transparent 65%)`,
+            background: `radial-gradient(ellipse 72% 58% at 50% 18%, rgba(217,164,65,0.18) 0%, transparent 68%)`,
           }}
         />
 
-        <div className="relative mx-auto flex max-w-7xl flex-col items-center px-5 py-20 text-center sm:px-8 lg:py-28">
+        <div className="relative mx-auto flex max-w-7xl flex-col items-center px-5 py-16 text-center sm:px-8 lg:py-24">
           <FadeIn className="flex w-full flex-col items-center">
-            <div
-              className="type-label inline-flex items-center gap-2 rounded-full border bg-white px-4 py-1.5"
-              style={{ borderColor: stone, color: navy }}
-            >
-              <Landmark className="size-3.5" style={{ color: gold }} aria-hidden="true" />
-              Cebu City Civic Technology
+            <div className="relative mx-auto flex w-full max-w-md justify-center">
+              <div
+                className="absolute left-1/2 top-8 z-10 -translate-x-1/2 rounded-3xl border bg-white px-4 py-2 text-left text-xs font-bold shadow-[0_8px_22px_rgba(11,46,89,0.08)] sm:left-[66%] sm:top-11 sm:w-64 sm:translate-x-0"
+                style={{ borderColor: stone, color: navy }}
+              >
+                Kumusta! Ask me anything about Cebu City ordinances.
+                <span
+                  aria-hidden="true"
+                  className="absolute -bottom-2 left-8 size-4 rotate-45 border-b border-r bg-white sm:left-6"
+                  style={{ borderColor: stone }}
+                />
+              </div>
+
+              <div
+                className="mt-20 rounded-full border p-5 shadow-[0_20px_56px_rgba(11,46,89,0.12)] sm:mt-0 sm:p-7"
+                style={{ borderColor: stone, backgroundColor: creamDark }}
+              >
+                <Mascot state="greeting" size={260} aria-hidden={false} />
+              </div>
             </div>
 
             <h1
-              className="type-hero mt-6 max-w-3xl"
+              className="type-hero mt-8 max-w-3xl"
               style={{ color: navy }}
             >
-              Modern ordinance access for{" "}
-              <span style={{ color: gold }}>transparent governance</span>
+              Meet Asst. Kiko, your friendly guide to{" "}
+              <span style={{ color: gold }}>Cebu City ordinances</span>
             </h1>
 
             <p
               className="type-body-lg mt-6 max-w-2xl"
               style={{ color: slateMuted }}
             >
-              OrdinanceSync helps citizens and LGU teams search, understand,
-              and manage local legislation through one accessible public policy
-              platform — built with the trust and clarity civic service demands.
+              Ask in English or Bisaya and Kiko will help you find clear,
+              source-backed answers from local ordinances in a plain,
+              conversational way.
             </p>
 
-            <div className="mt-9">
+            <div className="mt-9 flex flex-col items-center gap-4">
               <Link
                 href="/chat"
                 className="type-button inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0B2E59] px-8 text-white shadow-[0_4px_14px_rgba(11,46,89,0.18)] transition-all hover:bg-[#134A7A] hover:shadow-[0_8px_24px_rgba(11,46,89,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B2E59]"
               >
-                Start policy chat
+                Ask Kiko
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
             </div>
