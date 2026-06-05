@@ -76,6 +76,20 @@ function formatRetryAfter(seconds: unknown): string | null {
   return `${minutes} minute${minutes === 1 ? "" : "s"}`
 }
 
+// Map mascot states to image paths
+function getMascotImagePath(state: MascotState): string {
+  const stateToImage: Partial<Record<MascotState, string>> = {
+    thinking: "thinking",
+    greeting: "idle",
+    answering: "idle",
+    blocked: "blocked",
+    idle: "idle",
+    apologetic: "apologetic",
+  }
+  const imageName = stateToImage[state] || "idle"
+  return `/mascot/${imageName}.png`
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -304,20 +318,13 @@ export default function ChatPage() {
   // ============================================================================
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: COLORS.cream }}>
-      {/* Left sidebar — reveals after the first message */}
-      <div
-        className="hidden overflow-hidden transition-[width,opacity] duration-300 ease-in-out lg:flex"
-        style={{
-          width: started ? "220px" : "0px",
-          opacity: started ? 1 : 0,
-        }}
-        aria-hidden={!started}
-      >
+      {/* Left sidebar — hidden in chat mode (no sidebar) */}
+      <div className="hidden">
         <SidebarContent />
       </div>
 
       {/* Right column — chat panel */}
-      <div className="flex flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
         {/* HEADER */}
         <header
           className="shrink-0 border-b px-4 py-3 sm:px-6"
@@ -370,9 +377,15 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {!started ? (
-          // ---- Landing screen ----
-          <main className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-10 sm:px-6">
+        {/* Landing screen — absolute positioned for smooth transition */}
+        <main
+          className="absolute inset-0 flex flex-col items-center justify-center overflow-y-auto px-4 py-10 sm:px-6 transition-opacity duration-250 ease-in"
+          style={{
+            opacity: !started ? 1 : 0,
+            pointerEvents: !started ? "auto" : "none",
+            zIndex: !started ? 10 : 0,
+          }}
+        >
             <div className="w-full max-w-3xl text-center">
               <div className="relative mx-auto flex w-full max-w-sm justify-center pb-2">
                 <div
@@ -488,10 +501,18 @@ export default function ChatPage() {
                 <p className="mt-5 text-sm font-semibold text-red-600">{error}</p>
               )}
             </div>
-          </main>
-        ) : (
-          // ---- Conversation view ----
-          <>
+        </main>
+
+        {/* Chat layout — fades in with delay */}
+        <div
+          className="flex flex-1 flex-col overflow-hidden transition-opacity duration-250 ease-in"
+          style={{
+            opacity: started ? 1 : 0,
+            pointerEvents: started ? "auto" : "none",
+            transitionDelay: started ? "50ms" : "0ms",
+            zIndex: started ? 10 : 0,
+          }}
+        >
             {/* Messages area */}
             <div
               ref={scrollRef}
@@ -614,7 +635,7 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Input bar */}
+            {/* Input bar with mascot avatar */}
             <div
               className="shrink-0 border-t px-4 py-4 sm:px-6"
               style={{
@@ -630,6 +651,12 @@ export default function ChatPage() {
                     "--tw-ring-color": COLORS.navy,
                   } as React.CSSProperties}
                 >
+                  {/* Mascot avatar */}
+                  <img
+                    src={getMascotImagePath(mascotState)}
+                    alt="Kiko"
+                    className="size-11 shrink-0 rounded-full object-contain"
+                  />
                   <input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -669,8 +696,7 @@ export default function ChatPage() {
                 </p>
               </form>
             </div>
-          </>
-        )}
+        </div>
 
         {voiceOpen && (
           <VoiceModal
