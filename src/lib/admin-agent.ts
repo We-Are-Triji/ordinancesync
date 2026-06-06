@@ -1,5 +1,5 @@
 import { getGoogleAccessToken } from "./google-auth"
-import { openMcpConnection, type McpTool } from "./mcp-client"
+import { getMcpConnection, type McpTool } from "./mcp-client"
 
 /**
  * Smart Admin Console agent.
@@ -148,7 +148,8 @@ export async function runAdminQuery(question: string): Promise<AdminAgentResult>
   }
 
   const trace: TraceStep[] = []
-  const mcp = await openMcpConnection()
+  // Reuse the shared MCP connection (spawning is the main latency cost).
+  const mcp = await getMcpConnection()
 
   try {
     const tools = await mcp.listTools()
@@ -174,17 +175,22 @@ export async function runAdminQuery(question: string): Promise<AdminAgentResult>
         return { answer, trace }
       }
 
-      // Execute each requested tool call and feed results back.
+      // Execute the requested tool calls in parallel and feed results back.
       const responseParts: GeminiPart[] = []
-      for (const part of calls) {
-        const fc = part.functionCall!
-        trace.push({ kind: "tool_call", tool: fc.name, args: fc.args ?? {} })
-        let resultText = ""
-        try {
-          resultText = await mcp.callTool(fc.name, fc.args ?? {})
-        } catch (err) {
-          resultText = `Tool error: ${err instanceof Error ? err.message : "unknown"}`
-        }
+      const results = await Promise.all(
+        calls.map(async (part) => {
+          const fc = part.functionCall!
+          trace.push({ kind: "tool_call", tool: fc.name, args: fc.args ?? {} })
+          let resultText = ""
+          try {
+            resultText = await mcp.callTool(fc.name, fc.args ?? {})
+          } catch (err) {
+            resultText = `Tool error: ${err instanceof Error ? err.message : "unknown"}`
+          }
+          return { fc, resultText }
+        })
+      )
+      for (const { fc, resultText } of results) {
         trace.push({
           kind: "tool_result",
           tool: fc.name,
@@ -205,7 +211,7 @@ export async function runAdminQuery(question: string): Promise<AdminAgentResult>
       "I gathered some data but couldn't finish reasoning within the step limit. Try a more specific question."
     trace.push({ kind: "answer", text: fallback })
     return { answer: fallback, trace }
-  } finally {
-    await mcp.close()
+  } catch (err) {
+    throw err instanceof Error ? err : new Error("Admin query failed.")
   }
 }

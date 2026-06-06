@@ -1,7 +1,8 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Loader2, Volume2, VolumeX } from "lucide-react"
+import { unlockAudio, playDataUrl, stopAudio } from "@/lib/audio-player"
 
 /**
  * Plays an assistant answer aloud via /api/speak (Google TTS).
@@ -43,13 +44,14 @@ function guessLanguage(text: string, hint?: string): string {
 
 export default function SpeakButton({ text, languageHint }: SpeakButtonProps) {
   const [state, setState] = useState<"idle" | "loading" | "playing">("idle")
-  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   async function handleClick() {
+    // Unlock audio on this direct user gesture.
+    unlockAudio()
+
     // Toggle off if currently playing.
-    if (state === "playing" && audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current = null
+    if (state === "playing") {
+      stopAudio()
       setState("idle")
       return
     }
@@ -68,18 +70,9 @@ export default function SpeakButton({ text, languageHint }: SpeakButtonProps) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Voice unavailable.")
 
-      const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`)
-      audioRef.current = audio
-      audio.onended = () => {
-        setState("idle")
-        audioRef.current = null
-      }
-      audio.onerror = () => {
-        setState("idle")
-        audioRef.current = null
-      }
-      await audio.play()
       setState("playing")
+      await playDataUrl(`data:${data.mimeType};base64,${data.audio}`)
+      setState("idle")
     } catch {
       setState("idle")
     }

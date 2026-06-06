@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertTriangle, Check, Loader2, Mic, RotateCcw, X } from "lucide-react"
 import { useFocusTrap } from "@/lib/use-focus-trap"
+import { unlockAudio } from "@/lib/audio-player"
 
 const LANGUAGES: { code: SttLang; label: string }[] = [
   { code: "ceb-PH", label: "Bisaya" },
@@ -262,7 +263,10 @@ export default function VoiceModal({ onClose, onTranscript }: VoiceModalProps) {
 
   function confirmAndSend() {
     const text = transcript.trim()
-    if (text) onTranscript(text, languageRef.current)
+    if (!text) return
+    // Unlock audio on this gesture so the spoken answer can autoplay later.
+    unlockAudio()
+    onTranscript(text, languageRef.current)
   }
 
   return (

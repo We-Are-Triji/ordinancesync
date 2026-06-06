@@ -103,6 +103,7 @@ export default function ChatPage() {
   const [voiceOpen, setVoiceOpen] = useState(false)
   const [voiceSupported, setVoiceSupported] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
 
   const started = messages.length > 0
   const loading = requestInFlight
@@ -151,7 +152,16 @@ export default function ChatPage() {
     if (text.trim()) send(text, { speak: true, language })
   }
 
-  // Plays an answer aloud via /api/speak. Used for the voice loop.
+  // Opening voice is a user gesture — unlock audio now so the later spoken
+  // answer isn't blocked by the browser's autoplay policy.
+  function openVoice() {
+    unlockAudio()
+    setVoiceOpen(true)
+  }
+
+  // Plays an answer aloud via /api/speak. Used for the voice loop. Uses the
+  // shared (autoplay-unlocked) audio element so playback isn't blocked when it
+  // fires seconds after the user's gesture.
   async function speakAnswer(text: string, language?: string) {
     try {
       const res = await fetch("/api/speak", {
@@ -161,10 +171,12 @@ export default function ChatPage() {
       })
       const data = await res.json()
       if (!res.ok || !data.audio) return
-      const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`)
-      await audio.play()
+      setSpeaking(true)
+      await playDataUrl(`data:${data.mimeType};base64,${data.audio}`)
     } catch {
       /* non-fatal — the text answer is already shown */
+    } finally {
+      setSpeaking(false)
     }
   }
 
@@ -487,7 +499,7 @@ export default function ChatPage() {
                   {voiceSupported && (
                     <button
                       type="button"
-                      onClick={() => setVoiceOpen(true)}
+                      onClick={openVoice}
                       className="flex size-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-90"
                       style={{ color: COLORS.navy }}
                       aria-label="Ask with voice"
