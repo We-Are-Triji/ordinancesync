@@ -25,6 +25,7 @@ import {
   isBlockedAnswer,
   isBlockedError,
 } from "@/components/chat/mascot"
+import { unlockAudio, playDataUrl } from "@/lib/audio-player"
 
 const VoiceModal = dynamic(() => import("@/components/chat/voice-modal"), {
   ssr: false,
